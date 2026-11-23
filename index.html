@@ -73,10 +73,16 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',-apple-sy
 .frow{display:flex;gap:6px;flex-wrap:wrap}
 table{width:100%;border-collapse:collapse;font-size:13px}
 thead tr{border-bottom:2px solid var(--border)}
-th{padding:8px 10px;text-align:left;color:var(--text3);font-size:11px;font-weight:600;letter-spacing:.05em;white-space:nowrap}
+th{padding:6px 8px;text-align:left;color:var(--text3);font-size:11px;font-weight:600;letter-spacing:.05em;white-space:nowrap}
 tbody tr{border-bottom:1px solid var(--border)}
-td{padding:8px 10px;vertical-align:top}
+td{padding:6px 8px;vertical-align:top}
+/* 짧은 칼럼은 내용 폭만 차지하게 해서, 남는 공간이 칼럼 사이로 퍼지지 않고
+   제목·메모 같은 긴 칼럼에 몰리도록 합니다. */
 .nowrap{white-space:nowrap}
+/* 칼럼 폭을 브라우저 재량에 맡기지 않고 colgroup 으로 못박습니다.
+   auto 레이아웃에서는 width 가 힌트라 긴 칼럼이 줄고 짧은 칼럼이 늘어납니다. */
+table.fixed{table-layout:fixed}
+table.fixed td{word-break:break-word}
 .pill{display:inline-block;padding:2px 9px;border-radius:12px;font-size:11px;font-weight:600;white-space:nowrap}
 .src-언론{background:#e0f2fe;color:#075985}
 .src-SNS{background:#fce7f3;color:#9d174d}
@@ -221,7 +227,8 @@ footer{text-align:center;padding:1.5rem;font-size:11px;color:var(--text3);border
       <div class="cwrap" style="height:380px"><canvas id="c-ad-media"></canvas></div></div>
   </div>
   <div class="card"><div class="ctitle">집행 내역</div><div class="csub" id="ad-list-sub">-</div>
-    <div style="overflow-x:auto"><table>
+    <div style="overflow-x:auto"><table class="fixed" style="min-width:820px">
+      <colgroup><col style="width:52px"><col style="width:112px"><col style="width:30%"><col style="width:30%"><col style="width:78px"><col style="width:86px"><col style="width:52px"></colgroup>
       <thead><tr><th>연도</th><th>언론사</th><th>내용</th><th>메모</th><th>품의 구분</th><th style="text-align:right">금액(천원)</th><th>진행</th></tr></thead>
       <tbody id="ad-tbody"></tbody></table>
       <div id="ad-empty" class="empty" style="display:none">해당 연도 집행 내역이 없습니다</div>
@@ -250,7 +257,8 @@ footer{text-align:center;padding:1.5rem;font-size:11px;color:var(--text3);border
       <div><div class="ctitle" id="am-detail-title">-</div><div class="csub" id="am-detail-sub" style="margin-bottom:0">-</div></div>
       <button class="hbtn" onclick="selectAdMedia(null)">닫기</button>
     </div>
-    <div style="overflow-x:auto"><table>
+    <div style="overflow-x:auto"><table class="fixed" style="min-width:760px">
+      <colgroup><col style="width:52px"><col style="width:34%"><col style="width:34%"><col style="width:78px"><col style="width:86px"><col style="width:52px"></colgroup>
       <thead><tr><th>연도</th><th>내용</th><th>메모</th><th>품의 구분</th><th style="text-align:right">금액(천원)</th><th>진행</th></tr></thead>
       <tbody id="am-detail-tbody"></tbody></table></div>
   </div>
@@ -267,6 +275,32 @@ footer{text-align:center;padding:1.5rem;font-size:11px;color:var(--text3);border
   <div class="card">
     <div style="overflow-x:auto"><table><thead><tr><th>월</th><th>주</th><th>도움말자료 준비</th><th>질병 기념일</th></tr></thead><tbody id="help-tbody"></tbody></table>
     <div id="help-empty" class="empty" style="display:none">해당 연도 자료가 없습니다</div></div>
+  </div>
+</section>
+
+<!-- ⑥-2 언론 보도 -->
+<section class="sec" id="sec-news">
+  <div class="mrow" id="news-metrics"></div>
+  <div class="g2">
+    <div class="card"><div class="ctitle">월별 보도 건수</div><div class="csub">수집된 서울아산병원 기사</div>
+      <div class="cwrap" style="height:300px"><canvas id="c-news-month"></canvas></div></div>
+    <div class="card"><div class="ctitle">매체별 보도 TOP15</div><div class="csub">건수</div>
+      <div class="cwrap" style="height:380px"><canvas id="c-news-media"></canvas></div></div>
+  </div>
+  <div class="card" style="margin-bottom:1.5rem">
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+      <input type="search" id="nw-q" placeholder="제목·교수명·기자명 검색" style="flex:1;min-width:220px" oninput="renderNews()">
+      <select id="nw-media" onchange="renderNews()"><option value="">매체 전체</option></select>
+      <select id="nw-month" onchange="renderNews()"><option value="">월 전체</option></select>
+    </div>
+    <div style="margin-top:10px;font-size:12px;color:var(--text3)" id="nw-count">-</div>
+  </div>
+  <div class="card">
+    <div style="overflow-x:auto"><table>
+      <thead><tr><th>날짜</th><th>매체</th><th>제목</th><th>교수</th><th>기자</th></tr></thead>
+      <tbody id="nw-tbody"></tbody></table>
+      <div id="nw-empty" class="empty" style="display:none">조건에 맞는 기사가 없습니다</div>
+    </div>
   </div>
 </section>
 
@@ -301,6 +335,55 @@ const FEED_URL = 'https://script.google.com/macros/s/AKfycbw3IwzUGKQf8PnHmqSRVQB
 
 let FEED = {meta:{tabs:[]}, work:[], refs:{}};
 let WORK = [];
+
+/* 수집된 언론 보도. scripts/build_news.py 가 만든 추출본을 읽습니다.
+   수집본 저장소(hospital-news-dashboard)는 운영본이라 건드리지 않고, 여기로 복사해 둡니다. */
+const NEWS_URL = 'data/articles.json';
+let NEWS = [];
+let NEWS_INDEX = null;   // 정규화 제목 → 기사
+
+/** build_news.py 의 norm_title() 과 규칙이 같아야 합니다. 다르면 링크가 하나도 안 붙습니다. */
+function normTitle(t){
+  let v = String(t==null?'':t).replace(/^\[[^\]]*\]\s*/,'');
+  v = v.replace(/[\u2018\u2019\u201c\u201d'"`]/g,'');
+  v = v.replace(/[^0-9A-Za-z가-힣]/g,'');
+  return v.toLowerCase();
+}
+/** 광고 '내용'에는 뒤에 담당자가 붙습니다: "제목 ㅣ 전영은" → "제목" */
+function adTitleForMatch(t){
+  return String(t==null?'':t).split(/[ㅣ|｜]/)[0];
+}
+function newsIndex(){
+  if(NEWS_INDEX) return NEWS_INDEX;
+  NEWS_INDEX={};
+  NEWS.forEach(a=>{ const k=normTitle(a.t); if(k && !NEWS_INDEX[k]) NEWS_INDEX[k]=a; });
+  return NEWS_INDEX;
+}
+/** 한 칸에 기사 제목이 여러 줄 들어있는 경우가 많아 줄마다 찾습니다. */
+function articlesFor(adTitle){
+  const idx=newsIndex(), seen={}, out=[];
+  String(adTitle==null?'':adTitle).split(/\n+/).forEach(line=>{
+    const k=normTitle(adTitleForMatch(line));
+    if(!k || k.length<8) return;          // 너무 짧은 줄은 오매칭 위험
+    const a=idx[k];
+    if(a && !seen[a.u]){ seen[a.u]=1; out.push(a); }
+  });
+  return out;
+}
+
+async function loadNews(){
+  try{
+    const res=await fetch(NEWS_URL,{cache:'no-store'});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const j=await res.json();
+    NEWS=j.articles||[];
+    NEWS_INDEX=null;
+    console.log('언론 보도 '+NEWS.length+'건');
+  }catch(e){
+    console.warn('언론 보도 추출본을 못 읽었습니다. 링크와 언론 보도 화면만 비게 됩니다.',e);
+    NEWS=[];
+  }
+}
 
 const CACHE_KEY = 'amc-pr-team:feed:v1';
 const CACHE_MAX_AGE = 7*24*60*60*1000;
@@ -398,7 +481,7 @@ async function loadFeed(){
   showLoading(!cached);
 
   try{
-    const feed=await fetchFeed(5);
+    const [feed]=await Promise.all([fetchFeed(5), loadNews()]);
     applyFeed(feed);
     writeCache(feed);
     if(cached) redrawCurrentTab(); else initDashboard();
@@ -417,6 +500,7 @@ function applyFeed(feed){
   FEED=feed;
   WORK=feed.work||[];
   AD_ROWS=null;   // 광고 메모 합치기 결과를 다시 계산
+  NEWS_INDEX=null;
   console.log('업무 '+WORK.length+'건, 참조 '+Object.keys(feed.refs||{}).length+'종');
 }
 
@@ -431,6 +515,7 @@ const TABS=[
   {id:'ad',       group:'업무 내역', name:'광고·협찬',   icon:'💰', crumb:'연도별 광고 집행 내역',        draw:()=>drawAd()},
   {id:'admedia',  group:'업무 내역', name:'언론사별 집행', icon:'🏷️', crumb:'언론사별 집행 금액과 내역',    draw:()=>drawAdMedia()},
   {id:'help',     group:'업무 내역', name:'도움말자료',  icon:'🗓️', crumb:'연도별 기획 캘린더',           draw:()=>drawHelp()},
+  {id:'news',     group:'언론 실적', name:'언론 보도',   icon:'📰', crumb:'수집된 서울아산병원 기사',     draw:()=>drawNews()},
   {id:'ref',      group:'자료',      name:'참조 자료',   icon:'📚', crumb:'교수·출연진 등 참고 리스트',   draw:()=>drawRef()}
 ];
 const drawn={};
@@ -724,18 +809,32 @@ function drawAd(){
       plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.x.toLocaleString()+'천원'}}},
       scales:{x:{grid:{color:gr},ticks:{color:tx},beginAtZero:true},y:{grid:{display:false},ticks:{color:tx,font:{size:11}}}}}});
 
-  document.getElementById('ad-list-sub').textContent=`${label} · ${rows.length}건 · 최신순`;
+  const linked=rows.reduce((n,r)=>n+articlesFor(r.title).length,0);
+  document.getElementById('ad-list-sub').textContent=
+    `${label} · ${rows.length}건 · 최신순` + (NEWS.length?` · 기사 링크 ${linked}개 연결`:'');
   document.getElementById('ad-empty').style.display=rows.length?'none':'block';
   document.getElementById('ad-tbody').innerHTML=rows.slice().sort((a,b)=>b.year-a.year).slice(0,400).map(adRowHtml).join('');
 }
 
 function memoCell(memo){
   if(!memo) return '<td style="color:var(--text3)">-</td>';
-  return `<td style="max-width:360px;word-break:keep-all;font-size:12px;color:var(--text2);white-space:pre-line">${esc(memo)}</td>`;
+  return `<td style="font-size:12px;color:var(--text2);white-space:pre-line;word-break:keep-all">${esc(memo)}</td>`;
 }
+/** 수집된 기사와 제목이 일치하면 원문 링크를 겁니다. */
+function titleCell(title, width){
+  const list=articlesFor(title);
+  const safe=esc(title);
+  if(!list.length) return `<td style="word-break:keep-all;white-space:pre-line">${safe}</td>`;
+  const links=list.map(a=>
+    `<div style="margin-top:4px"><a href="${esc(a.u)}" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:none;font-size:12px">`+
+    `🔗 ${esc(a.t)}</a><span style="font-size:11px;color:var(--text3)"> · ${esc(a.m)} · ${esc(a.d)}</span></div>`).join('');
+  return `<td style="word-break:keep-all">`+
+    `<div style="white-space:pre-line">${safe}</div>${links}</td>`;
+}
+
 function adRowHtml(r){
   return `<tr><td class="nowrap">${esc(r.year)}</td><td class="nowrap">${esc(r.media||'-')}</td>`+
-    `<td style="max-width:340px;word-break:keep-all">${esc(r.title)}</td>`+
+    titleCell(r.title,'32%')+
     memoCell(r.memo)+
     `<td class="nowrap">${esc(r.kind||'-')}</td>`+
     `<td class="nowrap" style="text-align:right;font-weight:600">${num(r.amount)?Math.round(num(r.amount)).toLocaleString():'-'}</td>`+
@@ -795,7 +894,7 @@ function renderAdMedia(){
     `${mine.length}건 · 총 ${Math.round(agg[amSelected].total).toLocaleString()}천원`;
   document.getElementById('am-detail-tbody').innerHTML=mine.map(r=>
     `<tr><td class="nowrap">${esc(r.year)}</td>`+
-    `<td style="max-width:340px;word-break:keep-all">${esc(r.title)}</td>`+
+    titleCell(r.title,'32%')+
     memoCell(r.memo)+
     `<td class="nowrap">${esc(r.kind||'-')}</td>`+
     `<td class="nowrap" style="text-align:right;font-weight:600">${num(r.amount)?Math.round(num(r.amount)).toLocaleString():'-'}</td>`+
@@ -826,6 +925,80 @@ function renderHelp(){
     `<tr><td class="nowrap">${esc(r.month)}</td><td class="nowrap">${esc(r.week||'-')}</td>`+
     `<td style="max-width:460px;word-break:keep-all">${esc(r.title)}</td>`+
     `<td style="color:var(--text3)">${esc(r.anniversary||'-')}</td></tr>`).join('');
+}
+
+/* ── ⑥-2 언론 보도 ── */
+function drawNews(){
+  if(!NEWS.length){
+    document.getElementById('news-metrics').innerHTML=
+      '<div class="mc a" style="grid-column:1/-1"><div class="mlabel">언론 보도</div>'+
+      '<div class="mval" style="font-size:1.1rem">추출본을 읽지 못했습니다</div>'+
+      '<div class="msub">scripts/build_news.py 를 돌려 data/articles.json 을 만들어 커밋하세요</div></div>';
+    document.getElementById('nw-count').textContent='-';
+    document.getElementById('nw-tbody').innerHTML='';
+    document.getElementById('nw-empty').style.display='block';
+    return;
+  }
+  const months={}, media={};
+  NEWS.forEach(a=>{
+    const m=(a.d||'').slice(0,7);
+    if(m) months[m]=(months[m]||0)+1;
+    const k=a.m||'미상';
+    media[k]=(media[k]||0)+1;
+  });
+  const mk=Object.keys(months).sort();
+  const withProf=NEWS.filter(a=>a.p).length;
+  const latest=NEWS[0]?NEWS[0].d:'-';
+
+  document.getElementById('news-metrics').innerHTML=
+    `<div class="mc b"><div class="mlabel">수집 기사</div><div class="mval">${NEWS.length.toLocaleString()}<span class="munit">건</span></div><div class="msub">최근 ${esc(latest)}</div></div>`+
+    `<div class="mc g"><div class="mlabel">매체</div><div class="mval">${Object.keys(media).length}<span class="munit">곳</span></div><div class="msub">중복 제거 기준</div></div>`+
+    `<div class="mc a"><div class="mlabel">교수명 확인</div><div class="mval">${withProf.toLocaleString()}<span class="munit">건</span></div><div class="msub">전체의 ${Math.round(withProf/NEWS.length*100)}%</div></div>`+
+    `<div class="mc p"><div class="mlabel">월평균</div><div class="mval">${mk.length?Math.round(NEWS.length/mk.length).toLocaleString():0}<span class="munit">건</span></div><div class="msub">${mk.length}개월 기준</div></div>`;
+
+  destroyChart('c-news-month');
+  new Chart(document.getElementById('c-news-month'),{type:'bar',
+    data:{labels:mk,datasets:[{data:mk.map(m=>months[m]),backgroundColor:'#0ea5e9',borderRadius:4,borderWidth:0}]},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false}},
+      scales:{x:{grid:{display:false},ticks:{color:tx}},y:{grid:{color:gr},ticks:{color:tx},beginAtZero:true}}}});
+
+  const top=Object.keys(media).sort((a,b)=>media[b]-media[a]).slice(0,15);
+  destroyChart('c-news-media');
+  new Chart(document.getElementById('c-news-media'),{type:'bar',
+    data:{labels:top,datasets:[{data:top.map(m=>media[m]),backgroundColor:'#0369a1',borderRadius:3,borderWidth:0}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false}},
+      scales:{x:{grid:{color:gr},ticks:{color:tx},beginAtZero:true},y:{grid:{display:false},ticks:{color:tx,font:{size:11}}}}}});
+
+  const sel=(id,vals,label)=>{
+    document.getElementById(id).innerHTML=`<option value="">${label}</option>`+
+      vals.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');
+  };
+  sel('nw-media',Object.keys(media).sort((a,b)=>media[b]-media[a]),'매체 전체');
+  sel('nw-month',mk.slice().reverse(),'월 전체');
+  renderNews();
+}
+
+function renderNews(){
+  if(!NEWS.length) return;
+  const q=(document.getElementById('nw-q').value||'').trim().toLowerCase();
+  const fm=document.getElementById('nw-media').value;
+  const fmo=document.getElementById('nw-month').value;
+  const rows=NEWS.filter(a=>{
+    if(fm && (a.m||'미상')!==fm) return false;
+    if(fmo && (a.d||'').slice(0,7)!==fmo) return false;
+    if(q && [a.t,a.p,a.r,a.m].join(' ').toLowerCase().indexOf(q)<0) return false;
+    return true;
+  });
+  document.getElementById('nw-count').textContent=`${rows.length.toLocaleString()}건`;
+  document.getElementById('nw-empty').style.display=rows.length?'none':'block';
+  document.getElementById('nw-tbody').innerHTML=rows.slice(0,600).map(a=>
+    `<tr><td class="nowrap">${esc(a.d)}</td><td class="nowrap">${esc(a.m||'-')}</td>`+
+    `<td style="max-width:520px;word-break:keep-all">`+
+      `<a href="${esc(a.u)}" target="_blank" rel="noopener" style="color:var(--text);text-decoration:none">${esc(a.t)}`+
+      `<span style="margin-left:5px;font-size:11px;color:var(--blue)">🔗</span></a></td>`+
+    `<td class="nowrap" style="color:var(--text3)">${esc(a.p||'-')}</td>`+
+    `<td class="nowrap" style="color:var(--text3)">${esc(a.r||'-')}</td></tr>`).join('')+
+    (rows.length>600?`<tr><td colspan="5" class="empty">앞 600건만 표시했습니다 (전체 ${rows.length.toLocaleString()}건)</td></tr>`:'');
 }
 
 /* ── ⑦ 참조 자료 ── */
