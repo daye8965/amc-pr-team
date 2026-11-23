@@ -71,17 +71,20 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',-apple-sy
 .fbtn:hover{border-color:var(--blue);color:var(--blue)}
 .fbtn.active{background:var(--blue);color:#fff;border-color:var(--blue)}
 .frow{display:flex;gap:6px;flex-wrap:wrap}
-table{width:100%;border-collapse:collapse;font-size:13px}
+/* 칼럼이 몇 개 없는 표가 넓은 화면에서 끝까지 늘어나면 칼럼 사이가 한 뼘씩 벌어집니다.
+   내용 폭만 차지하게 두고(max-width 로 넘치지만 않게), 긴 글이 있는 표만 알아서 넓어지게 합니다. */
+table{width:auto;max-width:100%;border-collapse:collapse;font-size:13px}
 thead tr{border-bottom:2px solid var(--border)}
-th{padding:6px 8px;text-align:left;color:var(--text3);font-size:11px;font-weight:600;letter-spacing:.05em;white-space:nowrap}
+th{padding:7px 14px;text-align:left;color:var(--text3);font-size:11px;font-weight:600;letter-spacing:.05em;white-space:nowrap}
 tbody tr{border-bottom:1px solid var(--border)}
-td{padding:6px 8px;vertical-align:top}
+td{padding:7px 14px;vertical-align:top}
 /* 짧은 칼럼은 내용 폭만 차지하게 해서, 남는 공간이 칼럼 사이로 퍼지지 않고
    제목·메모 같은 긴 칼럼에 몰리도록 합니다. */
 .nowrap{white-space:nowrap}
 /* 칼럼 폭을 브라우저 재량에 맡기지 않고 colgroup 으로 못박습니다.
    auto 레이아웃에서는 width 가 힌트라 긴 칼럼이 줄고 짧은 칼럼이 늘어납니다. */
-table.fixed{table-layout:fixed}
+table.fixed{table-layout:fixed;width:100%}
+table.fixed th,table.fixed td{padding:6px 8px}
 table.fixed td{word-break:break-word}
 .pill{display:inline-block;padding:2px 9px;border-radius:12px;font-size:11px;font-weight:600;white-space:nowrap}
 .src-언론{background:#e0f2fe;color:#075985}
@@ -190,7 +193,10 @@ footer{text-align:center;padding:1.5rem;font-size:11px;color:var(--text3);border
     <div style="margin-top:10px;font-size:12px;color:var(--text3)" id="list-count">-</div>
   </div>
   <div class="card">
-    <div style="overflow-x:auto"><table>
+    <div style="overflow-x:auto"><table class="fixed" style="min-width:820px">
+      <!-- 마지막 빈 칸이 남는 폭을 흡수합니다. 안 두면 남는 폭이 칼럼 사이로 퍼지거나
+           진료과·매체가 화면 오른쪽 끝에 혼자 떨어져 붙습니다. -->
+      <colgroup><col style="width:58px"><col style="width:52px"><col style="width:48px"><col style="width:92px"><col style="width:min(600px,42%)"><col style="width:116px"><col style="width:150px"><col></colgroup>
       <thead><tr><th>구분</th><th>연도</th><th>월</th><th>담당</th><th>제목 / 내용</th><th>진료과</th><th>매체 · 비고</th></tr></thead>
       <tbody id="list-tbody"></tbody></table>
       <div id="list-empty" class="empty" style="display:none">조건에 맞는 업무가 없습니다</div>
@@ -208,7 +214,7 @@ footer{text-align:center;padding:1.5rem;font-size:11px;color:var(--text3);border
       <div class="cwrap" style="height:300px"><canvas id="c-sns-cat"></canvas></div></div>
   </div>
   <div class="card"><div class="ctitle">조회수 상위 콘텐츠</div><div class="csub">조회수가 기록된 건만</div>
-    <div style="overflow-x:auto"><table><thead><tr><th>연도</th><th>월</th><th>주제</th><th>형식</th><th>기획</th><th>편집</th><th style="text-align:right">조회수</th></tr></thead><tbody id="sns-top"></tbody></table></div></div>
+    <div style="overflow-x:auto"><table class="fixed" style="min-width:640px"><colgroup><col style="width:52px"><col style="width:48px"><col style="width:min(420px,40%)"><col style="width:88px"><col style="width:84px"><col style="width:84px"><col style="width:84px"><col></colgroup><thead><tr><th>연도</th><th>월</th><th>주제</th><th>형식</th><th>기획</th><th>편집</th><th style="text-align:right">조회수</th></tr></thead><tbody id="sns-top"></tbody></table></div></div>
 </section>
 
 <!-- ⑤ 광고·협찬 -->
@@ -228,7 +234,7 @@ footer{text-align:center;padding:1.5rem;font-size:11px;color:var(--text3);border
   </div>
   <div class="card"><div class="ctitle">집행 내역</div><div class="csub" id="ad-list-sub">-</div>
     <div style="overflow-x:auto"><table class="fixed" style="min-width:820px">
-      <colgroup><col style="width:52px"><col style="width:112px"><col style="width:30%"><col style="width:30%"><col style="width:78px"><col style="width:86px"><col style="width:52px"></colgroup>
+      <colgroup><col style="width:52px"><col style="width:112px"><col style="width:min(420px,30%)"><col style="width:min(400px,28%)"><col style="width:78px"><col style="width:86px"><col style="width:52px"><col></colgroup>
       <thead><tr><th>연도</th><th>언론사</th><th>내용</th><th>메모</th><th>품의 구분</th><th style="text-align:right">금액(천원)</th><th>진행</th></tr></thead>
       <tbody id="ad-tbody"></tbody></table>
       <div id="ad-empty" class="empty" style="display:none">해당 연도 집행 내역이 없습니다</div>
@@ -257,8 +263,8 @@ footer{text-align:center;padding:1.5rem;font-size:11px;color:var(--text3);border
       <div><div class="ctitle" id="am-detail-title">-</div><div class="csub" id="am-detail-sub" style="margin-bottom:0">-</div></div>
       <button class="hbtn" onclick="selectAdMedia(null)">닫기</button>
     </div>
-    <div style="overflow-x:auto"><table class="fixed" style="min-width:760px">
-      <colgroup><col style="width:52px"><col style="width:34%"><col style="width:34%"><col style="width:78px"><col style="width:86px"><col style="width:52px"></colgroup>
+    <div style="overflow-x:auto"><table class="fixed" style="min-width:700px">
+      <colgroup><col style="width:52px"><col style="width:min(420px,30%)"><col style="width:min(400px,28%)"><col style="width:78px"><col style="width:86px"><col style="width:52px"><col></colgroup>
       <thead><tr><th>연도</th><th>내용</th><th>메모</th><th>품의 구분</th><th style="text-align:right">금액(천원)</th><th>진행</th></tr></thead>
       <tbody id="am-detail-tbody"></tbody></table></div>
   </div>
@@ -296,7 +302,8 @@ footer{text-align:center;padding:1.5rem;font-size:11px;color:var(--text3);border
     <div style="margin-top:10px;font-size:12px;color:var(--text3)" id="nw-count">-</div>
   </div>
   <div class="card">
-    <div style="overflow-x:auto"><table>
+    <div style="overflow-x:auto"><table class="fixed" style="min-width:700px">
+      <colgroup><col style="width:92px"><col style="width:124px"><col style="width:min(620px,48%)"><col style="width:110px"><col style="width:92px"><col></colgroup>
       <thead><tr><th>날짜</th><th>매체</th><th>제목</th><th>교수</th><th>기자</th></tr></thead>
       <tbody id="nw-tbody"></tbody></table>
       <div id="nw-empty" class="empty" style="display:none">조건에 맞는 기사가 없습니다</div>
