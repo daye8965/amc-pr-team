@@ -259,7 +259,7 @@ footer{text-align:center;padding:1.5rem;font-size:11px;color:var(--text3);border
    데이터
    ────────────────────────────────────────────────────────────── */
 // Apps Script 웹 앱 /exec 주소. apps-script/Code.gs 를 배포하고 여기에 넣으세요.
-const FEED_URL = 'PASTE_YOUR_APPS_SCRIPT_EXEC_URL_HERE';
+const FEED_URL = 'https://script.google.com/macros/s/AKfycbw3IwzUGKQf8PnHmqSRVQB1czS94br4n4opN-ypl490Da0udFZw1AP1RoL-3MKkjYXz/exec';
 
 let FEED = {meta:{tabs:[]}, work:[], refs:{}};
 let WORK = [];
@@ -421,7 +421,9 @@ function initDashboard(){ Object.keys(drawn).forEach(k=>delete drawn[k]); show(c
 function destroyChart(id){ const c=Chart.getChart(id); if(c) c.destroy(); }
 
 function years(){ return [...new Set(WORK.map(r=>String(r.year)))].filter(y=>/^\d{4}$/.test(y)).sort(); }
-function num(v){ const n=parseFloat(String(v||'').replace(/[^\d.-]/g,'')); return isNaN(n)?0:n; }
+// 금액 칸에 "2,200" 아래 "(품의 3,300)" 처럼 숫자가 둘 적힌 경우가 있습니다.
+// 숫자를 전부 긁으면 22003300 이 되므로 맨 앞 숫자 하나만 씁니다.
+function num(v){ const m=String(v==null?'':v).replace(/,/g,'').match(/-?\d+(?:\.\d+)?/); return m?parseFloat(m[0]):0; }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
 /* ── ① 전체 현황 ── */

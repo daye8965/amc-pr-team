@@ -59,11 +59,20 @@ const WORK_TABS = [
  * 헤더를 찾아 그대로 표로 내보냅니다. 연락처 열은 빠집니다.
  */
 const REF_TABS = [
-  '암병원 교수',
-  '언론사 인터뷰 후보 리스트',
-  '명의 출연진',
-  '의료진 홍보 관련 특이사항'
+  // headerRow 를 주면 그 줄(0부터)을 헤더로 씁니다.
+  // 암병원 교수는 1행이 제목 배너, 2행이 암종(폐암/위암...) 머리글이라 자동 탐지가 사람 이름 줄을 집습니다.
+  {sheet: '암병원 교수', headerRow: 1},
+  {sheet: '언론사 인터뷰 후보 리스트'},
+  {sheet: '명의 출연진'},
+  {sheet: '의료진 홍보 관련 특이사항'}
 ];
+
+/** 시트 탭 이름 끝에 공백이 붙어 있는 경우가 있어(예: 'SNS ') 양끝 공백을 무시하고 찾습니다. */
+function sheetByName_(ss, name) {
+  const want = String(name).trim();
+  const found = ss.getSheets().filter(function (sh) { return sh.getName().trim() === want; });
+  return found.length ? found[0] : null;
+}
 
 function doGet() {
   return ContentService
@@ -78,7 +87,7 @@ function buildFeed_() {
   const refs = {};
 
   WORK_TABS.forEach(function (def) {
-    const sheet = ss.getSheetByName(def.sheet);
+    const sheet = sheetByName_(ss, def.sheet);
     if (!sheet) { meta.tabs.push({name: def.sheet, kind: 'work', rows: 0, error: '탭 없음'}); return; }
 
     const values = sheet.getDataRange().getDisplayValues();
@@ -114,13 +123,14 @@ function buildFeed_() {
     meta.tabs.push({name: def.sheet, kind: 'work', rows: count});
   });
 
-  REF_TABS.forEach(function (name) {
-    const sheet = ss.getSheetByName(name);
+  REF_TABS.forEach(function (def) {
+    const name = def.sheet;
+    const sheet = sheetByName_(ss, name);
     if (!sheet) { meta.tabs.push({name: name, kind: 'ref', rows: 0, error: '탭 없음'}); return; }
 
     const values = sheet.getDataRange().getDisplayValues();
-    const headerRow = findRefHeaderRow_(values);
-    if (headerRow < 0) { meta.tabs.push({name: name, kind: 'ref', rows: 0, error: '헤더 못 찾음'}); return; }
+    const headerRow = def.headerRow !== undefined ? def.headerRow : findRefHeaderRow_(values);
+    if (headerRow < 0 || headerRow >= values.length) { meta.tabs.push({name: name, kind: 'ref', rows: 0, error: '헤더 못 찾음'}); return; }
 
     const header = values[headerRow];
     const keep = [];
