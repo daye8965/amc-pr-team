@@ -207,15 +207,53 @@ footer{text-align:center;padding:1.5rem;font-size:11px;color:var(--text3);border
 
 <!-- ⑤ 광고·협찬 -->
 <section class="sec" id="sec-ad">
+  <div class="card" style="margin-bottom:1.5rem">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+      <div><div class="ctitle">연도 선택</div><div class="csub" style="margin-bottom:0">지표·언론사 차트·집행 내역이 선택한 연도로 바뀝니다</div></div>
+      <div class="frow" id="ad-years"></div>
+    </div>
+  </div>
   <div class="mrow" id="ad-metrics"></div>
   <div class="g2">
-    <div class="card"><div class="ctitle">연도별 집행 금액</div><div class="csub">단위: 천원</div>
+    <div class="card"><div class="ctitle">연도별 집행 금액</div><div class="csub">단위: 천원 · 선택한 연도를 진하게 표시합니다</div>
       <div class="cwrap" style="height:300px"><canvas id="c-ad-year"></canvas></div></div>
-    <div class="card"><div class="ctitle">언론사별 집행 금액 TOP15</div><div class="csub">전체 기간 · 천원</div>
+    <div class="card"><div class="ctitle">언론사별 집행 금액 TOP15</div><div class="csub" id="ad-media-sub">-</div>
       <div class="cwrap" style="height:380px"><canvas id="c-ad-media"></canvas></div></div>
   </div>
-  <div class="card"><div class="ctitle">집행 내역</div><div class="csub">최신순</div>
-    <div style="overflow-x:auto"><table><thead><tr><th>연도</th><th>언론사</th><th>내용</th><th>품의 구분</th><th style="text-align:right">금액(천원)</th><th>진행</th></tr></thead><tbody id="ad-tbody"></tbody></table></div></div>
+  <div class="card"><div class="ctitle">집행 내역</div><div class="csub" id="ad-list-sub">-</div>
+    <div style="overflow-x:auto"><table>
+      <thead><tr><th>연도</th><th>언론사</th><th>내용</th><th>메모</th><th>품의 구분</th><th style="text-align:right">금액(천원)</th><th>진행</th></tr></thead>
+      <tbody id="ad-tbody"></tbody></table>
+      <div id="ad-empty" class="empty" style="display:none">해당 연도 집행 내역이 없습니다</div>
+    </div></div>
+</section>
+
+<!-- ⑤-2 언론사별 집행 -->
+<section class="sec" id="sec-admedia">
+  <div class="card" style="margin-bottom:1.5rem">
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+      <input type="search" id="am-q" placeholder="언론사 검색" style="flex:1;min-width:200px" oninput="renderAdMedia()">
+      <select id="am-sort" onchange="renderAdMedia()">
+        <option value="amount">금액 많은 순</option>
+        <option value="count">건수 많은 순</option>
+        <option value="name">이름순</option>
+      </select>
+    </div>
+    <div style="margin-top:10px;font-size:12px;color:var(--text3)" id="am-count">-</div>
+  </div>
+  <div class="card"><div class="ctitle">언론사 × 연도 집행 금액</div><div class="csub">단위: 천원 · 언론사를 누르면 그 언론사 집행 내역이 아래에 나옵니다</div>
+    <div style="overflow-x:auto"><table><thead id="am-thead"></thead><tbody id="am-tbody"></tbody></table>
+      <div id="am-empty" class="empty" style="display:none">표시할 언론사가 없습니다</div></div>
+  </div>
+  <div class="card" id="am-detail-card" style="display:none">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:1rem">
+      <div><div class="ctitle" id="am-detail-title">-</div><div class="csub" id="am-detail-sub" style="margin-bottom:0">-</div></div>
+      <button class="hbtn" onclick="selectAdMedia(null)">닫기</button>
+    </div>
+    <div style="overflow-x:auto"><table>
+      <thead><tr><th>연도</th><th>내용</th><th>메모</th><th>품의 구분</th><th style="text-align:right">금액(천원)</th><th>진행</th></tr></thead>
+      <tbody id="am-detail-tbody"></tbody></table></div>
+  </div>
 </section>
 
 <!-- ⑥ 도움말자료 -->
@@ -378,6 +416,7 @@ async function loadFeed(){
 function applyFeed(feed){
   FEED=feed;
   WORK=feed.work||[];
+  AD_ROWS=null;   // 광고 메모 합치기 결과를 다시 계산
   console.log('업무 '+WORK.length+'건, 참조 '+Object.keys(feed.refs||{}).length+'종');
 }
 
@@ -389,7 +428,8 @@ const TABS=[
   {id:'workload', group:'현황',      name:'업무량 분석', icon:'⚖️', crumb:'담당자별 업무 배분',           draw:()=>drawWorkload()},
   {id:'list',     group:'업무 내역', name:'업무 목록',   icon:'📋', crumb:'전체 업무 검색 · 필터',        draw:()=>drawList()},
   {id:'sns',      group:'업무 내역', name:'SNS 콘텐츠',  icon:'🎬', crumb:'유튜브 제작 현황과 조회수',    draw:()=>drawSns()},
-  {id:'ad',       group:'업무 내역', name:'광고·협찬',   icon:'💰', crumb:'언론사 광고 집행 내역',        draw:()=>drawAd()},
+  {id:'ad',       group:'업무 내역', name:'광고·협찬',   icon:'💰', crumb:'연도별 광고 집행 내역',        draw:()=>drawAd()},
+  {id:'admedia',  group:'업무 내역', name:'언론사별 집행', icon:'🏷️', crumb:'언론사별 집행 금액과 내역',    draw:()=>drawAdMedia()},
   {id:'help',     group:'업무 내역', name:'도움말자료',  icon:'🗓️', crumb:'연도별 기획 캘린더',           draw:()=>drawHelp()},
   {id:'ref',      group:'자료',      name:'참조 자료',   icon:'📚', crumb:'교수·출연진 등 참고 리스트',   draw:()=>drawRef()}
 ];
@@ -613,47 +653,154 @@ function drawSns(){
 }
 
 /* ── ⑤ 광고·협찬 ── */
-function drawAd(){
-  const rows=WORK.filter(r=>r.source==='광고');
-  const ys=[...new Set(rows.map(r=>String(r.year)))].sort();
-  const byYear={}, byMedia={};
-  rows.forEach(r=>{
-    const y=String(r.year), a=num(r.amount);
-    byYear[y]=(byYear[y]||0)+a;
-    const m=r.media||'미상';
-    byMedia[m]=(byMedia[m]||0)+a;
+
+/* 시트에는 언론사·금액 없이 내용만 적힌 '메모 행'이 있습니다. 바로 앞 집행 건에 딸린
+   설명이므로 별도 행으로 두지 않고 그 건의 memo 로 붙입니다. 피드가 시트 순서를 유지하기에 가능합니다. */
+let AD_ROWS=null;
+function adRows(){
+  if(AD_ROWS) return AD_ROWS;
+  const out=[];
+  WORK.filter(r=>r.source==='광고').forEach(r=>{
+    const bare=!String(r.media||'').trim() && !String(r.amount||'').trim() && !String(r.kind||'').trim();
+    if(bare && out.length){
+      const prev=out[out.length-1];
+      prev.memo = prev.memo ? prev.memo+'\n'+r.title : r.title;
+      return;
+    }
+    out.push(Object.assign({}, r, {memo:''}));
   });
+  AD_ROWS=out;
+  return out;
+}
+function adYears(){ return [...new Set(adRows().map(r=>String(r.year)))].filter(y=>/^\d{4}$/.test(y)).sort(); }
+
+let adYear='전체';
+function setAdYear(y){
+  adYear=y;
+  document.querySelectorAll('#ad-years .fbtn').forEach(b=>b.classList.toggle('active',b.textContent===y));
+  drawAd();
+}
+
+function drawAd(){
+  const box=document.getElementById('ad-years');
+  if(!box.children.length){
+    box.innerHTML=['전체'].concat(adYears()).map(y=>
+      `<button class="fbtn${y===adYear?' active':''}" onclick="setAdYear('${y}')">${y}</button>`).join('');
+  }
+  const all=adRows();
+  const rows=adYear==='전체'?all:all.filter(r=>String(r.year)===adYear);
+  const label=adYear==='전체'?'전체 기간':adYear+'년';
+
+  const byMedia={};
+  rows.forEach(r=>{ const m=r.media||'미상'; byMedia[m]=(byMedia[m]||0)+num(r.amount); });
   const total=rows.reduce((s,r)=>s+num(r.amount),0);
+  const paid=rows.filter(r=>num(r.amount)>0);
   const topMedia=Object.keys(byMedia).sort((a,b)=>byMedia[b]-byMedia[a]);
 
   document.getElementById('ad-metrics').innerHTML=
-    `<div class="mc a"><div class="mlabel">집행 건수</div><div class="mval">${rows.length}<span class="munit">건</span></div><div class="msub">${ys[0]||'-'}~${ys[ys.length-1]||'-'}</div></div>`+
-    `<div class="mc g"><div class="mlabel">집행 총액</div><div class="mval">${Math.round(total).toLocaleString()}<span class="munit">천원</span></div><div class="msub">전체 기간</div></div>`+
-    `<div class="mc b"><div class="mlabel">건당 평균</div><div class="mval">${rows.length?Math.round(total/rows.length).toLocaleString():0}<span class="munit">천원</span></div><div class="msub">-</div></div>`+
-    `<div class="mc p"><div class="mlabel">최다 집행 언론사</div><div class="mval" style="font-size:1.4rem">${esc(topMedia[0]||'-')}</div><div class="msub">${topMedia[0]?Math.round(byMedia[topMedia[0]]).toLocaleString()+'천원':''}</div></div>`;
+    `<div class="mc a"><div class="mlabel">집행 건수</div><div class="mval">${rows.length}<span class="munit">건</span></div><div class="msub">${label}</div></div>`+
+    `<div class="mc g"><div class="mlabel">집행 총액</div><div class="mval">${Math.round(total).toLocaleString()}<span class="munit">천원</span></div><div class="msub">${paid.length}건에 금액 기록</div></div>`+
+    `<div class="mc b"><div class="mlabel">건당 평균</div><div class="mval">${paid.length?Math.round(total/paid.length).toLocaleString():0}<span class="munit">천원</span></div><div class="msub">금액 기록된 건 기준</div></div>`+
+    `<div class="mc p"><div class="mlabel">최다 집행 언론사</div><div class="mval" style="font-size:1.35rem">${esc(topMedia[0]||'-')}</div><div class="msub">${topMedia[0]?Math.round(byMedia[topMedia[0]]).toLocaleString()+'천원':''}</div></div>`;
 
+  // 연도 차트는 늘 전체 연도를 보여주고 선택한 해만 진하게
+  const ys=adYears();
+  const byYear={}; all.forEach(r=>{ byYear[String(r.year)]=(byYear[String(r.year)]||0)+num(r.amount); });
   destroyChart('c-ad-year');
   new Chart(document.getElementById('c-ad-year'),{type:'bar',
-    data:{labels:ys,datasets:[{data:ys.map(y=>Math.round(byYear[y]||0)),backgroundColor:'#d97706',borderRadius:4,borderWidth:0}]},
-    options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false},
-      tooltip:{callbacks:{label:c=>c.parsed.y.toLocaleString()+'천원'}}},
+    data:{labels:ys,datasets:[{data:ys.map(y=>Math.round(byYear[y]||0)),
+      backgroundColor:ys.map(y=>(adYear==='전체'||y===adYear)?'#d97706':'rgba(217,119,6,.25)'),borderRadius:4,borderWidth:0}]},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,
+      onClick:(e,els)=>{ if(els.length) setAdYear(ys[els[0].index]); },
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y.toLocaleString()+'천원'}}},
       scales:{x:{grid:{display:false},ticks:{color:tx}},y:{grid:{color:gr},ticks:{color:tx},beginAtZero:true}}}});
 
+  document.getElementById('ad-media-sub').textContent=label+' · 천원';
   const top15=topMedia.slice(0,15);
   destroyChart('c-ad-media');
   new Chart(document.getElementById('c-ad-media'),{type:'bar',
     data:{labels:top15,datasets:[{data:top15.map(m=>Math.round(byMedia[m])),backgroundColor:'#b45309',borderRadius:3,borderWidth:0}]},
-    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false},
-      tooltip:{callbacks:{label:c=>c.parsed.x.toLocaleString()+'천원'}}},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,animation:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.x.toLocaleString()+'천원'}}},
       scales:{x:{grid:{color:gr},ticks:{color:tx},beginAtZero:true},y:{grid:{display:false},ticks:{color:tx,font:{size:11}}}}}});
 
-  document.getElementById('ad-tbody').innerHTML=rows.slice().sort((a,b)=>b.year-a.year).slice(0,300).map(r=>
-    `<tr><td class="nowrap">${esc(r.year)}</td><td class="nowrap">${esc(r.media||'-')}</td>`+
-    `<td style="max-width:360px;word-break:keep-all">${esc(r.title)}</td>`+
+  document.getElementById('ad-list-sub').textContent=`${label} · ${rows.length}건 · 최신순`;
+  document.getElementById('ad-empty').style.display=rows.length?'none':'block';
+  document.getElementById('ad-tbody').innerHTML=rows.slice().sort((a,b)=>b.year-a.year).slice(0,400).map(adRowHtml).join('');
+}
+
+function memoCell(memo){
+  if(!memo) return '<td style="color:var(--text3)">-</td>';
+  return `<td style="max-width:360px;word-break:keep-all;font-size:12px;color:var(--text2);white-space:pre-line">${esc(memo)}</td>`;
+}
+function adRowHtml(r){
+  return `<tr><td class="nowrap">${esc(r.year)}</td><td class="nowrap">${esc(r.media||'-')}</td>`+
+    `<td style="max-width:340px;word-break:keep-all">${esc(r.title)}</td>`+
+    memoCell(r.memo)+
     `<td class="nowrap">${esc(r.kind||'-')}</td>`+
     `<td class="nowrap" style="text-align:right;font-weight:600">${num(r.amount)?Math.round(num(r.amount)).toLocaleString():'-'}</td>`+
-    `<td class="nowrap" style="color:var(--text3)">${esc(r.status||'-')}</td></tr>`).join('')
-    || '<tr><td colspan="6" class="empty">집행 내역이 없습니다</td></tr>';
+    `<td class="nowrap" style="color:var(--text3)">${esc(r.status||'-')}</td></tr>`;
+}
+
+/* ── ⑤-2 언론사별 집행 ── */
+let amSelected=null;
+function selectAdMedia(name){
+  amSelected = (name===null||name===amSelected) ? null : name;
+  renderAdMedia();
+}
+function drawAdMedia(){ renderAdMedia(); }
+
+function renderAdMedia(){
+  const rows=adRows();
+  const ys=adYears();
+  const q=(document.getElementById('am-q').value||'').trim().toLowerCase();
+  const sort=document.getElementById('am-sort').value;
+
+  const agg={};
+  rows.forEach(r=>{
+    const m=r.media||'미상';
+    if(!agg[m]) agg[m]={count:0,total:0,byYear:{}};
+    agg[m].count++;
+    const a=num(r.amount);
+    agg[m].total+=a;
+    agg[m].byYear[String(r.year)]=(agg[m].byYear[String(r.year)]||0)+a;
+  });
+  let names=Object.keys(agg);
+  if(q) names=names.filter(n=>n.toLowerCase().indexOf(q)>=0);
+  names.sort((a,b)=>
+    sort==='count' ? agg[b].count-agg[a].count :
+    sort==='name'  ? a.localeCompare(b,'ko') :
+                     agg[b].total-agg[a].total);
+
+  document.getElementById('am-count').textContent=
+    `${names.length}개 언론사 · 집행 ${rows.length}건 · 총 ${Math.round(rows.reduce((s,r)=>s+num(r.amount),0)).toLocaleString()}천원`;
+  document.getElementById('am-empty').style.display=names.length?'none':'block';
+
+  const th=v=>`<th style="text-align:right">${esc(v)}</th>`;
+  document.getElementById('am-thead').innerHTML=
+    `<tr><th>언론사</th>${ys.map(th).join('')}${th('합계')}${th('건수')}</tr>`;
+  const money=v=>v?Math.round(v).toLocaleString():'<span style="color:var(--text3)">·</span>';
+  document.getElementById('am-tbody').innerHTML=names.map(n=>
+    `<tr${n===amSelected?' style="background:var(--surface2)"':''}>`+
+    `<td class="nowrap"><button onclick="selectAdMedia('${esc(n).replace(/'/g,"\\'")}')" style="border:none;background:none;padding:0;font:inherit;font-weight:600;color:var(--blue);cursor:pointer;text-align:left">${esc(n)}</button></td>`+
+    ys.map(y=>`<td class="nowrap" style="text-align:right">${money(agg[n].byYear[y])}</td>`).join('')+
+    `<td class="nowrap" style="text-align:right;font-weight:700">${money(agg[n].total)}</td>`+
+    `<td class="nowrap" style="text-align:right">${agg[n].count}</td></tr>`).join('');
+
+  const card=document.getElementById('am-detail-card');
+  if(!amSelected||!agg[amSelected]){ card.style.display='none'; return; }
+  const mine=rows.filter(r=>(r.media||'미상')===amSelected).sort((a,b)=>b.year-a.year);
+  document.getElementById('am-detail-title').textContent=amSelected+' 집행 내역';
+  document.getElementById('am-detail-sub').textContent=
+    `${mine.length}건 · 총 ${Math.round(agg[amSelected].total).toLocaleString()}천원`;
+  document.getElementById('am-detail-tbody').innerHTML=mine.map(r=>
+    `<tr><td class="nowrap">${esc(r.year)}</td>`+
+    `<td style="max-width:340px;word-break:keep-all">${esc(r.title)}</td>`+
+    memoCell(r.memo)+
+    `<td class="nowrap">${esc(r.kind||'-')}</td>`+
+    `<td class="nowrap" style="text-align:right;font-weight:600">${num(r.amount)?Math.round(num(r.amount)).toLocaleString():'-'}</td>`+
+    `<td class="nowrap" style="color:var(--text3)">${esc(r.status||'-')}</td></tr>`).join('');
+  card.style.display='block';
 }
 
 /* ── ⑥ 도움말자료 ── */
