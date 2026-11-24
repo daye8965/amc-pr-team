@@ -35,6 +35,8 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',-apple-sy
 .snav.active{background:var(--accent);color:#fff;font-weight:600}
 .snav .ico{font-size:14px;width:18px;text-align:center;flex:0 0 18px}
 .side-foot{padding:1rem 1.25rem;border-top:1px solid rgba(255,255,255,.08);font-size:10px;color:#9a9087;line-height:1.6}
+.sheetbtn{display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 10px;margin-bottom:10px;border:1px solid rgba(255,255,255,.18);border-radius:8px;color:#ddd6cc;font-size:12px;font-weight:600;text-decoration:none;transition:all .15s}
+.sheetbtn:hover{background:rgba(255,255,255,.09);border-color:rgba(255,255,255,.34);color:#fff}
 .content{flex:1;min-width:0;display:flex;flex-direction:column}
 .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:1.1rem 2rem;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:5}
 .topbar h2{font-size:1.15rem;font-weight:700;letter-spacing:-.01em}
@@ -139,7 +141,11 @@ footer{text-align:center;padding:1.5rem;font-size:11px;color:var(--text3);border
     <div class="sub">서울아산병원 홍보팀<br>구글 시트 「언론유닛 업무 공유」<br>제작: 이다예</div>
   </div>
   <nav class="side-nav" id="nav"></nav>
-  <div class="side-foot">데이터 출처: 구글 시트<br>수치는 시트에서 고칩니다</div>
+  <div class="side-foot">
+    <a class="sheetbtn" href="https://docs.google.com/spreadsheets/d/15mRKud-otGhbvY5efenonaZxjlHGKRMhDU9LmoAA2WA/edit"
+       target="_blank" rel="noopener">구글 시트 열기 ↗</a>
+    수치는 여기가 아니라 시트에서 고칩니다<br>고친 뒤 새로고침하면 반영됩니다
+  </div>
 </aside>
 
 <div class="content">
