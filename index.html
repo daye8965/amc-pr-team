@@ -331,20 +331,11 @@ footer{text-align:center;padding:1.5rem;font-size:11px;color:var(--text3);border
 <section class="sec" id="sec-hnews"></section>
 <section class="sec" id="sec-radar"></section>
 
-<!-- ⑦ 참조 자료 -->
-<section class="sec" id="sec-ref">
-  <div class="card" style="margin-bottom:1.5rem">
-    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
-      <div class="frow" id="ref-tabs"></div>
-      <input type="search" id="ref-q" placeholder="표 안에서 검색" style="flex:1;min-width:200px" oninput="renderRef()">
-    </div>
-    <div style="margin-top:10px;font-size:12px;color:var(--text3)">기자·오피니언 연락처 탭은 공개 페이지라 연동에서 제외했습니다. 전화번호·이메일 열은 어느 탭에서도 가져오지 않습니다.</div>
-  </div>
-  <div class="card">
-    <div style="overflow-x:auto"><table><thead id="ref-thead"></thead><tbody id="ref-tbody"></tbody></table>
-    <div id="ref-empty" class="empty" style="display:none">표시할 자료가 없습니다</div></div>
-  </div>
-</section>
+<!-- ⑦ 참조 자료 — 리스트마다 한 탭씩. 속은 JS 가 채웁니다. -->
+<section class="sec" id="sec-ref-doc"></section>
+<section class="sec" id="sec-ref-cand"></section>
+<section class="sec" id="sec-ref-tv"></section>
+<section class="sec" id="sec-ref-note"></section>
 
 </div>
 
@@ -560,7 +551,11 @@ const TABS=[
   // embed:true 는 남의 페이지를 통째로 끼운 탭입니다. PDF 저장 버튼을 가립니다(iframe 은 캡처가 안 됩니다).
   {id:'hnews',    group:'언론 및 연구실적', name:'병원 뉴스 수집', icon:'🏥', crumb:'주요 병원 기사를 매일 수집해 비교합니다 · 따로 운영되는 페이지', embed:true, draw:()=>drawEmbed('hnews')},
   {id:'radar',    group:'언론 및 연구실적', name:'연구성과 레이더', icon:'🔬', crumb:'PubMed 신규 논문에서 보도자료 후보를 고릅니다 · 따로 운영되는 페이지', embed:true, draw:()=>drawEmbed('radar')},
-  {id:'ref',      group:'자료',      name:'참조 자료',   icon:'📚', crumb:'교수·출연진 등 참고 리스트',   draw:()=>drawRef()},
+  // 참조 리스트는 성격이 제각각이라 한 탭에 묶지 않고 하나씩 둡니다. sheet 는 시트 탭 이름.
+  {id:'ref-doc',  group:'자료',      name:'암병원 교수', icon:'🎗️', crumb:'암종별 소속과 교수',           sheet:'암병원 교수', draw:()=>drawRefDoctors()},
+  {id:'ref-cand', group:'자료',      name:'인터뷰 후보', icon:'🎙️', crumb:'언론사 인터뷰 후보 리스트',     sheet:'언론사 인터뷰 후보 리스트', draw:()=>drawRefTable('ref-cand')},
+  {id:'ref-tv',   group:'자료',      name:'명의 출연진', icon:'📺', crumb:'방송 출연 기록',               sheet:'명의 출연진', draw:()=>drawRefTable('ref-tv')},
+  {id:'ref-note', group:'자료',      name:'의료진 특이사항', icon:'📝', crumb:'홍보 관련 참고 메모',       sheet:'의료진 홍보 관련 특이사항', draw:()=>drawRefTable('ref-note')},
   {id:'overview', group:'현황',      name:'전체 현황',   icon:'📊', crumb:'전체 업무를 한눈에',           draw:()=>drawOverview()},
   {id:'list',     group:'현황',      name:'업무 목록',   icon:'📋', crumb:'전체 업무 검색 · 필터',        draw:()=>drawList()}
 ];
@@ -1301,30 +1296,116 @@ function drawEmbed(id){
 }
 
 /* ── ⑦ 참조 자료 ── */
-let refName=null;
-function setRef(name){
-  refName=name;
-  document.querySelectorAll('#ref-tabs .fbtn').forEach(b=>b.classList.toggle('active',b.textContent===name));
-  renderRef();
+
+const REF_NOTE='기자·오피니언 연락처 탭은 공개 페이지라 연동에서 제외했습니다. 전화번호·이메일 열은 어느 탭에서도 가져오지 않습니다.';
+function refTable(id){ const t=TABS.find(x=>x.id===id); return (FEED.refs||{})[t.sheet]||null; }
+function refQ(id){ const el=document.getElementById(id+'-q'); return (el&&el.value||'').trim().toLowerCase(); }
+
+/** 인터뷰 후보·명의 출연진·특이사항처럼 평범한 표는 이 하나로 그립니다. */
+function drawRefTable(id){
+  const tab=TABS.find(x=>x.id===id), t=refTable(id), sec=document.getElementById('sec-'+id);
+  if(!t){ sec.innerHTML=`<div class="card"><div class="empty">${esc(tab.sheet)} 을(를) 불러오지 못했습니다</div></div>`; return; }
+  const q=refQ(id);
+  const rows=q?t.rows.filter(r=>r.join(' ').toLowerCase().includes(q)):t.rows;
+  // 첫 칸(이름·연도 등)은 좁게, 긴 글이 들어가는 칸은 남는 폭을 나눠 갖게 둡니다
+  const wide=t.columns.map(c=>/내용|분야|성과|비고|주제/.test(c));
+  const cols=t.columns.map((c,i)=>wide[i]?'<col>':`<col style="width:${i===0?110:96}px">`).join('');
+  const head=t.columns.map(c=>`<th>${esc(c.replace(/\n/g,' '))}</th>`).join('');
+  sec.innerHTML=
+    `<div class="card">`+
+      `<div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:14px">`+
+        `<div><div class="ctitle">${esc(tab.name)}</div>`+
+        `<div class="csub" style="margin-bottom:0">시트 「${esc(tab.sheet)}」 · ${rows.length}행${q?` · "${esc(q)}" 검색`:''}</div></div>`+
+        `<input type="search" id="${id}-q" value="${esc(q)}" placeholder="표 안에서 검색" style="min-width:210px" oninput="drawRefTable('${id}')">`+
+      `</div>`+
+      `<div style="overflow-x:auto;margin-top:16px"><table class="fixed" style="min-width:760px"><colgroup>${cols}</colgroup>`+
+      `<thead><tr>${head}</tr></thead><tbody>`+
+      rows.slice(0,500).map(r=>'<tr>'+r.map((v,i)=>
+        `<td style="word-break:keep-all;white-space:pre-line${wide[i]?'':';color:var(--text2)'}">${esc(v||'-')}</td>`).join('')+'</tr>').join('')+
+      `</tbody></table>`+
+      (rows.length?'':'<div class="empty">조건에 맞는 자료가 없습니다</div>')+
+      (rows.length>500?`<div class="empty">앞 500행만 표시했습니다 (전체 ${rows.length}행)</div>`:'')+
+      `</div>`+
+      `<div style="margin-top:12px;font-size:11px;color:var(--text3)">${REF_NOTE}</div>`+
+    `</div>`;
+  const el=document.getElementById(id+'-q');
+  if(q){ el.focus(); el.setSelectionRange(el.value.length,el.value.length); }
 }
-function drawRef(){
-  const names=Object.keys(FEED.refs||{});
-  if(refName===null||!names.includes(refName)) refName=names[0]||null;
-  document.getElementById('ref-tabs').innerHTML=names.map(n=>
-    `<button class="fbtn${n===refName?' active':''}" onclick="setRef('${esc(n)}')">${esc(n)}</button>`).join('');
-  renderRef();
+
+/**
+ * 암병원 교수는 가로로 암종 17개가 '소속/교수' 쌍으로 늘어선 표라, 그대로 두면 35칼럼이 됩니다.
+ * 암종별 카드로 쪼개고 그 안에서 소속별로 묶습니다. 시트가 이렇게 생겼습니다.
+ *   1열 = 구분(센터소장·간사·교수). 빈 칸이면 위 줄에서 이어집니다.
+ *   소속 칸이 비어 있으면 바로 위에서 쓰던 소속이 이어집니다.
+ *   한 칸에 '소속 두 줄 / 교수 두 줄' 이 같이 들어있는 경우가 있어 줄 수가 같으면 줄끼리 짝지읍니다.
+ */
+function amcDoctorGroups(t){
+  const line=v=>String(v||'').split('\n').map(x=>x.trim()).filter(Boolean);
+  const out=[];
+  for(let c=1;c<t.columns.length;c+=2){
+    const name=String(t.columns[c]||'').replace(/\s*소속$/,'').replace(/\s+/g,' ').trim();
+    if(!name) continue;
+    const kinds={};             // 구분 → [{sosok, names:[]}]
+    let kind='', sosok='';
+    t.rows.forEach(r=>{
+      if(String(r[0]||'').trim()) kind=String(r[0]).trim();
+      const S=line(r[c]), P=line(r[c+1]);
+      if(!P.length){ if(S.length) sosok=S.join(' '); return; }
+      const pairs = (S.length===P.length && S.length>1)
+        ? S.map((x,i)=>[x,P[i]])
+        : (S.length ? P.map(x=>[S.join(' '),x]) : P.map(x=>[sosok,x]));
+      if(S.length) sosok=S.length===P.length&&S.length>1 ? S[S.length-1] : S.join(' ');
+      if(!kinds[kind]) kinds[kind]=[];
+      pairs.forEach(([so,pr])=>{
+        so=(so||sosok||'기타').replace(/\s+/g,' ');
+        let g=kinds[kind].find(x=>x.sosok===so);
+        if(!g){ g={sosok:so,names:[]}; kinds[kind].push(g); }
+        if(!g.names.includes(pr)) g.names.push(pr);
+      });
+    });
+    out.push({name:name, kinds:kinds});
+  }
+  return out;
 }
-function renderRef(){
-  const t=refName&&FEED.refs?FEED.refs[refName]:null;
-  const thead=document.getElementById('ref-thead'), tbody=document.getElementById('ref-tbody');
-  if(!t){ thead.innerHTML=''; tbody.innerHTML=''; document.getElementById('ref-empty').style.display='block'; return; }
-  const q=(document.getElementById('ref-q').value||'').trim().toLowerCase();
-  const rows=q?t.rows.filter(r=>r.join(' ').toLowerCase().indexOf(q)>=0):t.rows;
-  document.getElementById('ref-empty').style.display=rows.length?'none':'block';
-  thead.innerHTML='<tr>'+t.columns.map(c=>`<th>${esc(c)}</th>`).join('')+'</tr>';
-  tbody.innerHTML=rows.slice(0,500).map(r=>
-    '<tr>'+r.map(v=>`<td style="max-width:320px;word-break:keep-all">${esc(v)}</td>`).join('')+'</tr>').join('')+
-    (rows.length>500?`<tr><td colspan="${t.columns.length}" class="empty">앞 500행만 표시했습니다 (전체 ${rows.length}행)</td></tr>`:'');
+
+function drawRefDoctors(){
+  const tab=TABS.find(x=>x.id==='ref-doc'), t=refTable('ref-doc'), sec=document.getElementById('sec-ref-doc');
+  if(!t){ sec.innerHTML='<div class="card"><div class="empty">암병원 교수 자료를 불러오지 못했습니다</div></div>'; return; }
+  const q=refQ('ref-doc');
+  const groups=amcDoctorGroups(t);
+  const total=groups.reduce((n,g)=>n+Object.keys(g.kinds).reduce((m,k)=>m+g.kinds[k].reduce((x,s)=>x+s.names.length,0),0),0);
+
+  const card=g=>{
+    const order=Object.keys(g.kinds).sort((a,b)=>(a==='교수')-(b==='교수'));   // 센터소장·간사 먼저
+    const body=order.map(k=>
+      `<div style="margin-top:10px">`+
+      `<div style="font-size:11px;font-weight:600;color:var(--accent);margin-bottom:4px">${esc(k)}</div>`+
+      g.kinds[k].map(s=>
+        `<div style="display:flex;gap:8px;font-size:12px;line-height:1.6;margin-bottom:2px">`+
+        `<span style="flex:0 0 108px;color:var(--text3);word-break:keep-all">${esc(s.sosok)}</span>`+
+        `<span style="flex:1;word-break:keep-all">${esc(s.names.join(' · '))}</span></div>`).join('')+
+      `</div>`).join('');
+    const n=order.reduce((m,k)=>m+g.kinds[k].reduce((x,s)=>x+s.names.length,0),0);
+    return `<div class="card" style="margin:0"><div class="ctitle">${esc(g.name)}</div>`+
+           `<div class="csub" style="margin-bottom:0">${n}명</div>${body}</div>`;
+  };
+
+  const hit=g=>!q||(g.name+' '+Object.keys(g.kinds).map(k=>g.kinds[k].map(s=>s.sosok+' '+s.names.join(' ')).join(' ')).join(' ')).toLowerCase().includes(q);
+  const shown=groups.filter(hit);
+  sec.innerHTML=
+    `<div class="card">`+
+      `<div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:14px">`+
+        `<div><div class="ctitle">암병원 교수</div>`+
+        `<div class="csub" style="margin-bottom:0">암종 ${groups.length}개 · 연인원 ${total}명 · 시트 「암병원 교수」${q?` · "${esc(q)}" 검색`:''}</div></div>`+
+        `<input type="search" id="ref-doc-q" value="${esc(q)}" placeholder="암종·진료과·교수 검색" style="min-width:210px" oninput="drawRefDoctors()">`+
+      `</div>`+
+      `<div style="margin-top:12px;font-size:11px;color:var(--text3)">${REF_NOTE}</div>`+
+    `</div>`+
+    (shown.length
+      ? `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:1.5rem">${shown.map(card).join('')}</div>`
+      : `<div class="card"><div class="empty">조건에 맞는 자료가 없습니다</div></div>`);
+  const el=document.getElementById('ref-doc-q');
+  if(q){ el.focus(); el.setSelectionRange(el.value.length,el.value.length); }
 }
 
 /* ── PDF ── */
