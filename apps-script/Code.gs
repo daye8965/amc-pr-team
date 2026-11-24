@@ -19,7 +19,7 @@
  */
 
 /** 고칠 때마다 올리세요. 대시보드 '전체 현황' 맨 아래에 찍혀서, 재배포가 먹었는지 바로 보입니다. */
-const SCRIPT_VERSION = '2026-11-24c';
+const SCRIPT_VERSION = '2026-11-24d';
 
 const SPREADSHEET_ID = '15mRKud-otGhbvY5efenonaZxjlHGKRMhDU9LmoAA2WA';
 
@@ -153,6 +153,7 @@ function buildFeed_() {
   });
 
   meta.holidays = holidays_();
+  meta.newsroom = newsroom_();
   return {meta: meta, work: work, refs: refs};
 }
 
@@ -201,6 +202,56 @@ function holidays_() {
     cache.put('holidays', JSON.stringify(out), 21600);
   } catch (err) {
     // 공휴일을 못 받아도 나머지는 그대로 내보냅니다
+  }
+  return out;
+}
+
+/* ── 뉴스룸 보도자료 목록 ── */
+
+/**
+ * 뉴스룸(news.amc.seoul.kr)의 보도자료 목록을 받아 날짜별로 모아 둡니다.
+ * 대시보드가 우리 배포 기록의 날짜로 뉴스룸 글을 찾아 제목에 링크를 겁니다.
+ *
+ * 제목으로 검색하면 35%밖에 못 찾습니다(시트 제목이 내부 약칭이라서).
+ * 날짜로 맞추면 88%가 붙고, 같은 날 글이 둘 이상인 경우는 드뭅니다(145일 중 5일).
+ * 남의 사이트 HTML 을 읽는 것이라 뉴스룸이 화면을 바꾸면 링크만 사라집니다. 나머지는 그대로입니다.
+ */
+const NEWSROOM_LIST = 'https://news.amc.seoul.kr/news/con/list.do?pressChk=Y&pageIndex=';
+const NEWSROOM_PAGES = 40;   // 한 쪽 10건. 40쪽이면 4년치쯤 됩니다
+
+function newsroom_() {
+  const cache = CacheService.getScriptCache();
+  const hit = cache.get('newsroom');
+  if (hit) { try { return JSON.parse(hit); } catch (e) {} }
+
+  const out = {};
+  try {
+    const reqs = [];
+    for (var p = 1; p <= NEWSROOM_PAGES; p++) reqs.push({url: NEWSROOM_LIST + p, muteHttpExceptions: true});
+    // 한 쪽씩 돌면 40번이라 느립니다. fetchAll 로 한꺼번에 받습니다.
+    const res = UrlFetchApp.fetchAll(reqs);
+    const re = /detail\.do\?cntId=(\d+)[^"]*"[^>]*>([\s\S]*?)<\/a>/g;
+    res.forEach(function (r) {
+      if (r.getResponseCode() !== 200) return;
+      const html = r.getContentText();
+      var m;
+      while ((m = re.exec(html)) !== null) {
+        var txt = m[2].replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+        var d = txt.match(/^(\d{4})\.(\d{2})\.(\d{2})/);
+        if (!d) continue;
+        var title = txt.slice(d[0].length).trim();
+        var first = title.split(' ')[0];
+        if (first && first.length <= 3) title = title.slice(first.length).trim();   // '의료'·'행사' 같은 분류 떼기
+        var key = d[1] + '-' + d[2] + '-' + d[3];
+        if (!out[key]) out[key] = [];
+        if (!out[key].some(function (x) { return x.i === m[1]; })) {
+          out[key].push({i: m[1], t: title.slice(0, 90)});
+        }
+      }
+    });
+    cache.put('newsroom', JSON.stringify(out), 21600);
+  } catch (err) {
+    // 못 받아오면 링크만 안 붙습니다
   }
   return out;
 }
@@ -364,4 +415,7 @@ function testFeed() {
   });
   Logger.log('업무 첫 행: %s', JSON.stringify(feed.work[0]));
   Logger.log('공휴일 %s일 (못 받아오면 0)', Object.keys(feed.meta.holidays || {}).length);
+  var nr = feed.meta.newsroom || {};
+  var nrN = 0; Object.keys(nr).forEach(function (k) { nrN += nr[k].length; });
+  Logger.log('뉴스룸 보도자료 %s건 / %s일', nrN, Object.keys(nr).length);
 }

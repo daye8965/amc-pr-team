@@ -1138,12 +1138,14 @@ function drawPress(){
   const scopeLabel = prScope==='all' ? '모든 연도'
                    : prScope==='year' ? `${prYear}년 전체`
                    : `${prYear}년 ${prMonth}월` + (prDay?` ${prDay}일`:'');
+  const linked=rows.filter(newsroomFor).length;
   document.getElementById('pr-list-sub').textContent=
-    scopeLabel + (q?` · "${q}" 검색`:'') + ` · ${rows.length}건`;
+    scopeLabel + (q?` · "${q}" 검색`:'') + ` · ${rows.length}건` +
+    (linked?` · 뉴스룸 링크 ${linked}건`:'');
   document.getElementById('pr-empty').style.display=rows.length?'none':'block';
   document.getElementById('pr-tbody').innerHTML=rows.slice(0,400).map(r=>
     `<tr>`+prDateCell(r)+
-    `<td style="word-break:keep-all;white-space:pre-line">${esc(r.title)}</td>`+
+    prTitleCell(r)+
     `<td style="white-space:pre-line;word-break:keep-all">${esc(r.staff||'-')}</td>`+
     `<td style="white-space:pre-line;color:var(--text3)">${esc(r.dept||'-')}</td>`+
     `<td style="white-space:pre-line;word-break:keep-all">${esc(r.doctor||'-')}</td>`+
@@ -1208,10 +1210,37 @@ function prDateCell(r){
     `style="border:none;background:none;padding:0;font:inherit;color:var(--accent);cursor:pointer">${label}</button></td>`;
 }
 
+/** 제목 칸. 그날 뉴스룸 글이 있으면 눌러서 바로 갈 수 있게 합니다. */
+function prTitleCell(r){
+  const nr=newsroomFor(r);
+  if(!nr) return `<td style="word-break:keep-all;white-space:pre-line">${esc(r.title)}</td>`;
+  return `<td style="word-break:keep-all;white-space:pre-line">`+
+    `<a href="${esc(nr.url)}" target="_blank" rel="noopener" title="뉴스룸: ${esc(nr.title)}" `+
+    `style="color:var(--text);text-decoration:none">${esc(r.title)}`+
+    `<span style="margin-left:5px;font-size:11px;color:var(--accent)">🔗</span></a></td>`;
+}
+
 function topMonth(rows){
   const c={}; rows.forEach(r=>{ if(r._m) c[r._m]=(c[r._m]||0)+1; });
   const k=Object.keys(c).sort((a,b)=>c[b]-c[a])[0];
   return k?k+'월 '+c[k]+'건':'-';
+}
+
+/** 그날 뉴스룸에 올라온 보도자료. 같은 날 여럿이면 제목이 가장 비슷한 것을 고릅니다. */
+function newsroomFor(r){
+  const nr=(FEED.meta&&FEED.meta.newsroom)||{};
+  if(!r._d) return null;
+  const list=nr[`${r.year}-${String(r._m).padStart(2,'0')}-${String(r._d).padStart(2,'0')}`];
+  if(!list||!list.length) return null;
+  const best = list.length===1 ? list[0]
+    : list.slice().sort((a,b)=>titleSim(b.t,r.title)-titleSim(a.t,r.title))[0];
+  return {url:'https://news.amc.seoul.kr/news/con/detail.do?cntId='+best.i+'&pressChk=Y', title:best.t};
+}
+/** 두 글자씩 끊어 겹치는 수를 셉니다. 시트 제목과 뉴스룸 헤드라인은 글자가 달라서 완전 일치는 안 됩니다. */
+function titleSim(a,b){
+  const g=t=>{const v=String(t||'').replace(/[^0-9A-Za-z가-힣]/g,''),o=new Set();for(let i=0;i<v.length-1;i++)o.add(v.slice(i,i+2));return o;};
+  const A=g(a),B=g(b); let n=0; A.forEach(x=>{ if(B.has(x)) n++; });
+  return n;
 }
 
 function holidayOn(y,m,d){
@@ -1231,7 +1260,9 @@ function drawPressCal(yr){
     const cls='dc'+(((first+d-1)%7===0)?' sun':'')+(hol?' hol':'')+((prDay===d)?' sel':'');
     html+=`<div class="${cls}"><div class="dn">${d}</div>`+
       (hol?`<div class="hol-name">${esc(hol)}</div>`:'')+
-      list.map(r=>`<button class="ev" title="${esc(r.title)}" onclick="setPrDay(${d})">${esc(r.title)}</button>`).join('')+
+      list.map(r=>{const nr=newsroomFor(r);
+        return `<button class="ev" title="${esc(nr?'뉴스룸: '+nr.title:r.title)}" onclick="setPrDay(${d})">`+
+               `${esc(r.title)}${nr?' <span style="opacity:.6">🔗</span>':''}</button>`;}).join('')+
       '</div>';
   }
   const tail=(7-((first+last)%7))%7;
