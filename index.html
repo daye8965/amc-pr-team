@@ -309,9 +309,14 @@ footer{text-align:center;padding:1.5rem;font-size:11px;color:var(--text3);border
     </div>
   </div>
   <div class="mrow" id="pr-metrics"></div>
-  <div class="card" style="margin-bottom:1.5rem"><div class="ctitle">월별 배포 건수</div>
-    <div class="csub">막대를 누르면 그 달 캘린더로 넘어갑니다</div>
-    <div class="cwrap" style="height:230px"><canvas id="c-pr-month"></canvas></div></div>
+  <div class="g2">
+    <div class="card"><div class="ctitle">월별 배포 건수</div>
+      <div class="csub" id="pr-month-sub">막대를 누르면 그 달 캘린더로 넘어갑니다</div>
+      <div class="cwrap" style="height:230px"><canvas id="c-pr-month"></canvas></div></div>
+    <div class="card"><div class="ctitle">연도별 배포 건수</div>
+      <div class="csub">최근 5년 비교 · 막대를 누르면 그 해로 바뀝니다</div>
+      <div class="cwrap" style="height:230px"><canvas id="c-pr-year"></canvas></div></div>
+  </div>
   <div class="card" style="margin-bottom:1.5rem">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
       <div><div class="ctitle" id="pr-cal-title">-</div>
@@ -1107,13 +1112,27 @@ function drawPress(){
     `<div class="mc a"><div class="mlabel">가장 많았던 달</div><div class="mval" style="font-size:1.5rem">${topMonth(yr)}</div><div class="msub">같은 해 안에서</div></div>`+
     `<div class="mc p"><div class="mlabel">날짜 미정</div><div class="mval">${noDay}<span class="munit">건</span></div><div class="msub">게재일 칸이 비어 있음</div></div>`;
 
+  document.getElementById('pr-month-sub').textContent=prYear+'년 · 막대를 누르면 그 달 캘린더로 넘어갑니다';
   const cnt=[]; for(let m=1;m<=12;m++) cnt.push(yr.filter(r=>r._m===m).length);
   destroyChart('c-pr-month');
   new Chart(document.getElementById('c-pr-month'),{type:'bar',
     data:{labels:['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'],
-      datasets:[{data:cnt,backgroundColor:cnt.map((_,i)=>(i+1===prMonth)?'#0ea5e9':'rgba(14,165,233,.3)'),borderRadius:4,borderWidth:0}]},
+      datasets:[{data:cnt,backgroundColor:cnt.map((_,i)=>(i+1===prMonth)?'#0ea5e9':'rgba(14,165,233,.3)'),borderRadius:4,borderWidth:0,maxBarThickness:26}]},
     options:{responsive:true,maintainAspectRatio:false,animation:false,
       onClick:(e,els)=>{ if(els.length) setPrMonth(els[0].index+1); },
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y+'건'}}},
+      scales:{x:{grid:{display:false},ticks:{color:tx}},y:{grid:{color:gr},ticks:{color:tx,precision:0},beginAtZero:true}}}});
+
+  // 연도 비교는 올해까지의 최근 5년. 앞당겨 적어 둔 다음 해는 빼되, 그 해를 고르면 넣습니다.
+  const thisYear=new Date().getFullYear();
+  let cmp=ys.filter(y=>Number(y)<=thisYear).slice(-5);
+  if(!cmp.includes(prYear)) cmp=[...new Set(cmp.concat(prYear))].sort();
+  const cntY=cmp.map(y=>all.filter(r=>String(r.year)===y).length);
+  destroyChart('c-pr-year');
+  new Chart(document.getElementById('c-pr-year'),{type:'bar',
+    data:{labels:cmp,datasets:[{data:cntY,backgroundColor:cmp.map(y=>y===prYear?'#0ea5e9':'rgba(14,165,233,.3)'),borderRadius:4,borderWidth:0,maxBarThickness:36}]},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,
+      onClick:(e,els)=>{ if(els.length) setPrYear(cmp[els[0].index]); },
       plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y+'건'}}},
       scales:{x:{grid:{display:false},ticks:{color:tx}},y:{grid:{color:gr},ticks:{color:tx,precision:0},beginAtZero:true}}}});
 
