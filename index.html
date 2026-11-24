@@ -190,18 +190,8 @@ footer{text-align:center;padding:1.5rem;font-size:11px;color:var(--text3);border
   </div>
 </div>
 
-<!-- ① 전체 현황 -->
-<section class="sec" id="sec-overview">
-  <div class="mrow" id="ov-metrics"></div>
-  <div class="g2">
-    <div class="card"><div class="ctitle">업무 구분별 비중</div><div class="csub">시트 탭 기준</div>
-      <div class="cwrap" style="height:300px"><canvas id="c-ov-source"></canvas></div></div>
-    <div class="card"><div class="ctitle">연도별 업무 건수</div><div class="csub">구분 누적</div>
-      <div class="cwrap" style="height:300px"><canvas id="c-ov-year"></canvas></div></div>
-  </div>
-  <div class="card"><div class="ctitle">연동된 시트 탭</div><div class="csub" id="ov-tabs-sub">탭별로 몇 건씩 들어왔는지</div>
-    <div style="overflow-x:auto"><table><thead><tr><th>탭</th><th>종류</th><th style="text-align:right">건수</th><th>비고</th></tr></thead><tbody id="ov-tabs"></tbody></table></div></div>
-</section>
+<!-- ① 언론유닛 실적 (따로 운영되는 대시보드를 끼움) -->
+<section class="sec" id="sec-unit"></section>
 
 
 <!-- ③ 업무 목록 -->
@@ -225,6 +215,8 @@ footer{text-align:center;padding:1.5rem;font-size:11px;color:var(--text3);border
       <div id="list-empty" class="empty" style="display:none">조건에 맞는 업무가 없습니다</div>
     </div>
   </div>
+  <div class="card"><div class="ctitle">연동된 시트 탭</div><div class="csub" id="ov-tabs-sub">탭별로 몇 건씩 들어왔는지</div>
+    <div style="overflow-x:auto"><table><thead><tr><th>탭</th><th>종류</th><th style="text-align:right">건수</th><th>비고</th></tr></thead><tbody id="ov-tabs"></tbody></table></div></div>
 </section>
 
 
@@ -564,7 +556,7 @@ const TABS=[
   {id:'ref-tv',   group:'자료',      name:'명의 출연진', icon:'📺', crumb:'방송 출연 기록',               sheet:'명의 출연진', draw:()=>drawRefTable('ref-tv')},
   {id:'ref-note', group:'자료',      name:'의료진 특이사항', icon:'📝', crumb:'홍보 관련 참고 메모',       sheet:'의료진 홍보 관련 특이사항', draw:()=>drawRefTable('ref-note')},
   {id:'help',     group:'자료',      name:'도움말자료',  icon:'🗓️', crumb:'연도별 기획 캘린더',           draw:()=>drawHelp()},
-  {id:'overview', group:'현황',      name:'전체 현황',   icon:'📊', crumb:'전체 업무를 한눈에',           draw:()=>drawOverview()},
+  {id:'unit',     group:'현황',      name:'언론유닛 실적', icon:'📊', crumb:'언론유닛 홍보 실적 대시보드 · 따로 운영되는 페이지', embed:true, draw:()=>drawEmbed('unit')},
   {id:'list',     group:'현황',      name:'업무 목록',   icon:'📋', crumb:'전체 업무 검색 · 필터',        draw:()=>drawList()}
 ];
 const drawn={};
@@ -614,41 +606,10 @@ function nextSort(cur,k,numeric){
 function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
 /* ── ① 전체 현황 ── */
-function drawOverview(){
-  const bySrc={}, byYear={};
-  WORK.forEach(r=>{
-    bySrc[r.source]=(bySrc[r.source]||0)+1;
-    const y=String(r.year);
-    if(!byYear[y]) byYear[y]={};
-    byYear[y][r.source]=(byYear[y][r.source]||0)+1;
-  });
-  const people=new Set();
-  WORK.forEach(r=>workStaff(r).forEach(n=>{ if(n!==TEAM_LABEL) people.add(n); }));
-  const ys=years();
-  const adTotal=WORK.filter(r=>r.source==='광고').reduce((s,r)=>s+num(r.amount),0);
 
-  document.getElementById('ov-metrics').innerHTML=
-    `<div class="mc g"><div class="mlabel">전체 업무</div><div class="mval">${WORK.length.toLocaleString()}<span class="munit">건</span></div><div class="msub">${ys[0]||'-'}~${ys[ys.length-1]||'-'}</div></div>`+
-    SOURCES.filter(s=>bySrc[s]).map((s,i)=>
-      `<div class="mc ${['b','p','a','v'][i%4]}"><div class="mlabel">${s}</div><div class="mval">${bySrc[s].toLocaleString()}<span class="munit">건</span></div><div class="msub">전체의 ${Math.round(bySrc[s]/WORK.length*100)}%</div></div>`).join('')+
-    `<div class="mc v"><div class="mlabel">참여 인원</div><div class="mval">${people.size}<span class="munit">명</span></div><div class="msub">담당으로 기록된 사람</div></div>`+
-    (adTotal?`<div class="mc a"><div class="mlabel">광고 집행 누계</div><div class="mval">${Math.round(adTotal).toLocaleString()}<span class="munit">천원</span></div><div class="msub">광고·협찬 탭 기준</div></div>`:'');
-
-  const srcs=Object.keys(bySrc).sort((a,b)=>bySrc[b]-bySrc[a]);
-  destroyChart('c-ov-source');
-  new Chart(document.getElementById('c-ov-source'),{type:'doughnut',
-    data:{labels:srcs,datasets:[{data:srcs.map(s=>bySrc[s]),backgroundColor:srcs.map(s=>SRC_COLOR[s]||'#888'),borderWidth:0}]},
-    options:{responsive:true,maintainAspectRatio:false,cutout:'58%',animation:false,
-      plugins:{legend:{position:'right',labels:{color:tx,font:{size:11},padding:10,boxWidth:12}},
-        tooltip:{callbacks:{label:c=>c.label+': '+c.parsed+'건 ('+Math.round(c.parsed/WORK.length*100)+'%)'}}}}});
-
-  destroyChart('c-ov-year');
-  new Chart(document.getElementById('c-ov-year'),{type:'bar',
-    data:{labels:ys,datasets:srcs.map(s=>({label:s,data:ys.map(y=>(byYear[y]&&byYear[y][s])||0),backgroundColor:SRC_COLOR[s]||'#888',borderWidth:0}))},
-    options:{responsive:true,maintainAspectRatio:false,animation:false,
-      plugins:{legend:{position:'bottom',labels:{color:tx,font:{size:11},padding:10,boxWidth:12}}},
-      scales:{x:{stacked:true,grid:{display:false},ticks:{color:tx}},y:{stacked:true,grid:{color:gr},ticks:{color:tx},beginAtZero:true}}}});
-
+/* ── ③ 업무 목록 ── */
+/** 연동된 시트 탭. 전체 현황을 언론유닛 대시보드로 바꾸면서 업무 목록 아래로 옮겼습니다. */
+function drawFeedTabs(){
   // 스크립트 버전을 같이 찍습니다. Apps Script 를 고치고 재배포했는지 여기서 바로 보입니다.
   const sv=FEED.meta&&FEED.meta.script;
   document.getElementById('ov-tabs-sub').textContent=
@@ -659,8 +620,8 @@ function drawOverview(){
     `<td style="color:var(--text3)">${t.error?esc(t.error):''}</td></tr>`).join('');
 }
 
-/* ── ③ 업무 목록 ── */
 function drawList(){
+  drawFeedTabs();
   const fill=(id,vals,label)=>{
     const sel=document.getElementById(id);
     sel.innerHTML=`<option value="">${label}</option>`+vals.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');
@@ -1289,7 +1250,8 @@ function drawPressCal(yr){
    저쪽이 갱신되면 여기도 같이 바뀌게 합니다. 셋 다 daye8965.github.io 라 같은 출처입니다. */
 const EMBEDS={
   hnews:{title:'병원 뉴스 수집', url:'https://daye8965.github.io/hospital-news-dashboard/'},
-  radar:{title:'연구성과 레이더', url:'https://daye8965.github.io/amc-research-radar/'}
+  radar:{title:'연구성과 레이더', url:'https://daye8965.github.io/amc-research-radar/'},
+  unit:{title:'언론유닛 실적', url:'https://daye8965.github.io/amc-pr-unit/'}
 };
 function drawEmbed(id){
   const e=EMBEDS[id], sec=document.getElementById('sec-'+id);
