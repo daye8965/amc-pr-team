@@ -239,7 +239,8 @@ footer{text-align:center;padding:1.5rem;font-size:11px;color:var(--text3);border
       <input type="search" id="ad-media-q" placeholder="언론사 검색" oninput="setAdMediaQ(this.value)" style="min-width:200px">
     </div>
     <div style="overflow-x:auto"><table class="fixed" style="min-width:820px">
-      <colgroup><col style="width:58px"><col style="width:124px"><col style="width:min(420px,27%)"><col style="width:min(400px,26%)"><col style="width:88px"><col style="width:96px"><col style="width:64px"><col></colgroup>
+      <!-- 진행 칸에 문장이 들어 있어, 남는 폭을 빈 칸 대신 마지막 칸이 가져가게 둡니다. -->
+      <colgroup><col style="width:58px"><col style="width:124px"><col style="width:min(420px,27%)"><col style="width:min(400px,26%)"><col style="width:88px"><col style="width:96px"><col></colgroup>
       <thead><tr><th class="sort" id="ad-h-year" onclick="setAdSort('year')">연도</th><th class="sort" id="ad-h-media" onclick="setAdSort('media')">언론사</th><th>내용</th><th>메모</th><th class="sort" id="ad-h-kind" onclick="setAdSort('kind')">품의 구분</th><th class="sort" id="ad-h-amount" style="text-align:right" onclick="setAdSort('amount')">금액(천원)</th><th class="sort" id="ad-h-status" onclick="setAdSort('status')">진행</th></tr></thead>
       <tbody id="ad-tbody"></tbody></table>
       <div id="ad-empty" class="empty" style="display:none">조건에 맞는 집행 내역이 없습니다</div>
@@ -913,7 +914,7 @@ function adRowHtml(r){
     memoCell(r.memo)+
     `<td class="nowrap">${esc(r.kind||'-')}</td>`+
     `<td class="nowrap" style="text-align:right;font-weight:600">${num(r.amount)?Math.round(num(r.amount)).toLocaleString():'-'}</td>`+
-    `<td class="nowrap" style="color:var(--text3)" title="${esc(r.status||'')}">${esc(String(r.status||'-').replace(/\s+/g,' '))}</td></tr>`;
+    `<td style="color:var(--text3);white-space:pre-line;word-break:keep-all">${esc(r.status||'-')}</td></tr>`;
 }
 
 /* ── ⑤-2 언론사별 집행 ── */
@@ -976,7 +977,7 @@ function amDetailRow(name,rows,sum,cols){
     `</div>`+
     `<div style="overflow-x:auto;background:var(--surface);border:1px solid var(--border);border-radius:8px">`+
     `<table class="fixed" style="min-width:680px">`+
-    `<colgroup><col style="width:52px"><col style="width:min(420px,30%)"><col style="width:min(400px,28%)"><col style="width:78px"><col style="width:86px"><col style="width:56px"><col></colgroup>`+
+    `<colgroup><col style="width:52px"><col style="width:min(420px,30%)"><col style="width:min(400px,28%)"><col style="width:78px"><col style="width:86px"><col></colgroup>`+
     `<thead><tr><th>연도</th><th>내용</th><th>메모</th><th>품의 구분</th><th style="text-align:right">금액(천원)</th><th>진행</th></tr></thead><tbody>`+
     mine.map(r=>
       `<tr><td class="nowrap">${esc(r.year)}</td>`+
@@ -984,7 +985,7 @@ function amDetailRow(name,rows,sum,cols){
       memoCell(r.memo)+
       `<td class="nowrap">${esc(r.kind||'-')}</td>`+
       `<td class="nowrap" style="text-align:right;font-weight:600">${num(r.amount)?Math.round(num(r.amount)).toLocaleString():'-'}</td>`+
-      `<td class="nowrap" style="color:var(--text3)" title="${esc(r.status||'')}">${esc(String(r.status||'-').replace(/\s+/g,' '))}</td></tr>`).join('')+
+      `<td style="color:var(--text3);white-space:pre-line;word-break:keep-all">${esc(r.status||'-')}</td></tr>`).join('')+
     `</tbody></table></div></td></tr>`;
 }
 
