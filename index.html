@@ -113,6 +113,7 @@ table.fixed{table-layout:fixed;width:100%}
 table.fixed th,table.fixed td{padding:6px 8px}
 /* 고정 레이아웃에서는 nowrap 셀이 칸을 넘어 옆 칼럼 글자를 덮습니다. 넘치면 … 로 자릅니다. */
 table.fixed td.nowrap{overflow:hidden;text-overflow:ellipsis}
+.refwrap th{white-space:normal;word-break:keep-all;line-height:1.35;vertical-align:bottom}
 th.sort{cursor:pointer;user-select:none}
 th.sort:hover{color:var(--accent)}
 th.sort.on{color:var(--accent)}
@@ -1298,6 +1299,29 @@ function drawEmbed(id){
 /* ── ⑦ 참조 자료 ── */
 
 const REF_NOTE='기자·오피니언 연락처 탭은 공개 페이지라 연동에서 제외했습니다. 전화번호·이메일 열은 어느 탭에서도 가져오지 않습니다.';
+/** 참조 표 정렬. 표마다 따로 기억합니다. */
+const refSort={};
+function setRefSort(id,i){
+  const cur=refSort[id];
+  refSort[id] = (cur&&cur.key===i) ? {key:i,dir:cur.dir==='asc'?'desc':'asc'} : {key:i,dir:'asc'};
+  drawRefTable(id);
+}
+function refSorted(id,rows){
+  const st=refSort[id];
+  if(!st) return rows;
+  const dir=st.dir==='asc'?1:-1;
+  const val=r=>String(r[st.key]||'').replace(/\s+/g,' ').trim();
+  const numeric=rows.every(r=>{const v=val(r);return !v||/^-?\d+(\.\d+)?$/.test(v);});
+  return rows.slice().sort((a,b)=>{
+    const x=val(a), y=val(b);
+    if(!x&&!y) return 0;
+    if(!x) return 1;              // 빈 칸은 어느 방향이든 맨 뒤로
+    if(!y) return -1;
+    const c = numeric ? Number(x)-Number(y) : x.localeCompare(y,'ko');
+    return c*dir;
+  });
+}
+
 function refTable(id){ const t=TABS.find(x=>x.id===id); return (FEED.refs||{})[t.sheet]||null; }
 function refQ(id){ const el=document.getElementById(id+'-q'); return (el&&el.value||'').trim().toLowerCase(); }
 
@@ -1306,11 +1330,20 @@ function drawRefTable(id){
   const tab=TABS.find(x=>x.id===id), t=refTable(id), sec=document.getElementById('sec-'+id);
   if(!t){ sec.innerHTML=`<div class="card"><div class="empty">${esc(tab.sheet)} 을(를) 불러오지 못했습니다</div></div>`; return; }
   const q=refQ(id);
-  const rows=q?t.rows.filter(r=>r.join(' ').toLowerCase().includes(q)):t.rows;
-  // 첫 칸(이름·연도 등)은 좁게, 긴 글이 들어가는 칸은 남는 폭을 나눠 갖게 둡니다
+  let rows=q?t.rows.filter(r=>r.join(' ').toLowerCase().includes(q)):t.rows;
+  rows=refSorted(id,rows);
+
+  // 긴 글이 들어가는 칸은 남는 폭을 나눠 갖고, 나머지는 실제 들어있는 글자 수로 폭을 잡습니다.
+  // 머리글은 접히므로('차세대 (75년생 이하)') 폭을 머리글 길이에 맞출 필요는 없습니다.
   const wide=t.columns.map(c=>/내용|분야|성과|비고|주제/.test(c));
-  const cols=t.columns.map((c,i)=>wide[i]?'<col>':`<col style="width:${i===0?110:96}px">`).join('');
-  const head=t.columns.map(c=>`<th>${esc(c.replace(/\n/g,' '))}</th>`).join('');
+  const width=t.columns.map((c,i)=>{
+    let m=4;
+    t.rows.forEach(r=>String(r[i]||'').split('\n').forEach(ln=>{ if(ln.length>m) m=ln.length; }));
+    return Math.max(84, Math.min(150, m*12+22));
+  });
+  const cols=t.columns.map((c,i)=>wide[i]?'<col>':`<col style="width:${width[i]}px">`).join('');
+  const head=t.columns.map((c,i)=>
+    `<th class="sort" onclick="setRefSort('${id}',${i})">${sortHead(c.replace(/\n/g,' '),refSort[id]&&refSort[id].key===i,(refSort[id]||{}).dir)}</th>`).join('');
   sec.innerHTML=
     `<div class="card">`+
       `<div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:14px">`+
@@ -1318,7 +1351,7 @@ function drawRefTable(id){
         `<div class="csub" style="margin-bottom:0">시트 「${esc(tab.sheet)}」 · ${rows.length}행${q?` · "${esc(q)}" 검색`:''}</div></div>`+
         `<input type="search" id="${id}-q" value="${esc(q)}" placeholder="표 안에서 검색" style="min-width:210px" oninput="drawRefTable('${id}')">`+
       `</div>`+
-      `<div style="overflow-x:auto;margin-top:16px"><table class="fixed" style="min-width:760px"><colgroup>${cols}</colgroup>`+
+      `<div class="refwrap" style="overflow-x:auto;margin-top:16px"><table class="fixed" style="min-width:760px"><colgroup>${cols}</colgroup>`+
       `<thead><tr>${head}</tr></thead><tbody>`+
       rows.slice(0,500).map(r=>'<tr>'+r.map((v,i)=>
         `<td style="word-break:keep-all;white-space:pre-line${wide[i]?'':';color:var(--text2)'}">${esc(v||'-')}</td>`).join('')+'</tr>').join('')+
