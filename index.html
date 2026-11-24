@@ -78,6 +78,8 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',-apple-sy
 .tbtn.active{color:var(--blue);border-bottom-color:var(--blue)}
 .fbtn.amber:hover{border-color:var(--amber);color:var(--amber)}
 .fbtn.amber.active{background:var(--amber);border-color:var(--amber);color:#fff}
+.mlink{cursor:pointer;border-bottom:1px dashed var(--border)}
+.mlink:hover{color:var(--blue);border-bottom-color:var(--blue)}
 /* 칼럼이 몇 개 없는 표가 넓은 화면에서 끝까지 늘어나면 칼럼 사이가 한 뼘씩 벌어집니다.
    내용 폭만 차지하게 두고(max-width 로 넘치지만 않게), 긴 글이 있는 표만 알아서 넓어지게 합니다. */
 table{width:auto;max-width:100%;border-collapse:collapse;font-size:13px}
@@ -246,12 +248,15 @@ footer{text-align:center;padding:1.5rem;font-size:11px;color:var(--text3);border
   </div>
   <div class="card"><div class="ctitle">집행 내역</div><div class="csub" id="ad-list-sub">-</div>
     <div class="tabrow" id="ad-kinds" style="margin:12px 0 0"></div>
-    <div class="frow" id="ad-status" style="margin:12px 0 14px;align-items:center"></div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:12px 0 14px">
+      <div class="frow" id="ad-status" style="align-items:center"></div>
+      <input type="search" id="ad-media-q" placeholder="언론사 검색" oninput="setAdMediaQ(this.value)" style="margin-left:auto;min-width:190px">
+    </div>
     <div style="overflow-x:auto"><table class="fixed" style="min-width:820px">
       <colgroup><col style="width:58px"><col style="width:124px"><col style="width:min(420px,27%)"><col style="width:min(400px,26%)"><col style="width:88px"><col style="width:96px"><col style="width:64px"><col></colgroup>
       <thead><tr><th class="sort" id="ad-h-year" onclick="setAdSort('year')">연도</th><th class="sort" id="ad-h-media" onclick="setAdSort('media')">언론사</th><th>내용</th><th>메모</th><th class="sort" id="ad-h-kind" onclick="setAdSort('kind')">품의 구분</th><th class="sort" id="ad-h-amount" style="text-align:right" onclick="setAdSort('amount')">금액(천원)</th><th class="sort" id="ad-h-status" onclick="setAdSort('status')">진행</th></tr></thead>
       <tbody id="ad-tbody"></tbody></table>
-      <div id="ad-empty" class="empty" style="display:none">해당 연도 집행 내역이 없습니다</div>
+      <div id="ad-empty" class="empty" style="display:none">조건에 맞는 집행 내역이 없습니다</div>
     </div></div>
 </section>
 
@@ -788,13 +793,20 @@ function setAdYear(y){
 }
 
 /* 집행 내역 표의 필터·정렬. 연도 버튼과 달리 이 둘은 표만 바꾸고 지표·차트는 건드리지 않습니다. */
-let adKind='전체', adDoneFilter='전체', adSort={key:'year',dir:'desc'};
+let adKind='전체', adDoneFilter='전체', adMediaQ='', adSort={key:'year',dir:'desc'};
 /* 진행 칸은 자유 입력이라 '완', '완
 (교육수련팀 비용 처리)' 처럼 뒤에 설명이 붙습니다.
    '완'으로 시작하면 완료로 봅니다. '올해 패스'·'품의 중'·'전표 남음' 등은 미완료입니다. */
 function adDone(r){ return /^완/.test(String(r.status||'').trim()); }
 function adKindOf(r){ return String(r.kind||'').trim()||'미분류'; }
 function setAdKind(k){ adKind=k; drawAd(); }
+/** 표의 언론사명을 눌렀을 때도, 검색창에 쳤을 때도 같은 자리로 들어옵니다. */
+function setAdMediaQ(v){
+  adMediaQ=String(v==null?'':v).trim();
+  const el=document.getElementById('ad-media-q');
+  if(el && el.value!==adMediaQ) el.value=adMediaQ;
+  drawAd();
+}
 function setAdDoneFilter(v){ adDoneFilter=v; drawAd(); }
 function setAdSort(k){
   // 같은 칼럼을 다시 누르면 방향만 뒤집습니다. 처음 누를 때 숫자는 큰 값부터, 글자는 가나다순.
@@ -811,10 +823,15 @@ function adSortKey(r){
   if(k==='kind')   return adKindOf(r);
   return String(r.media||'');
 }
+/** 세 필터는 서로 곱해집니다. 칩에 붙는 건수를 셀 때 '자기 자신만 빼고' 재려고 인자로 받습니다. */
+function adMatch(r,kind,done,q){
+  if(kind!=='전체' && adKindOf(r)!==kind) return false;
+  if(done!=='전체' && adDone(r)!==(done==='완료')) return false;
+  if(q && !String(r.media||'').toLowerCase().includes(q.toLowerCase())) return false;
+  return true;
+}
 function adListRows(rows){
-  let out=rows;
-  if(adKind!=='전체')       out=out.filter(r=>adKindOf(r)===adKind);
-  if(adDoneFilter!=='전체') out=out.filter(r=>adDone(r)===(adDoneFilter==='완료'));
+  const out=rows.filter(r=>adMatch(r,adKind,adDoneFilter,adMediaQ));
   const dir=adSort.dir==='asc'?1:-1;
   return out.slice().sort((a,b)=>{
     const x=adSortKey(a), y=adSortKey(b);
@@ -875,21 +892,25 @@ function drawAd(){
       plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.x.toLocaleString()+'천원'}}},
       scales:{x:{grid:{color:gr},ticks:{color:tx},beginAtZero:true},y:{grid:{display:false},ticks:{color:tx,font:{size:11}}}}}});
 
-  // 품의 구분 칩은 선택한 연도에 있는 값으로 만들되, 지금 고른 값은 0건이어도 남겨둡니다
+  // 품의 구분 칩은 선택한 연도에 있는 값으로 만들되, 지금 고른 값은 0건이어도 남겨둡니다.
+  // 건수는 '나머지 필터를 적용한' 수를 보여줍니다 — 언론사를 검색해 두고 7건만 보는데
+  // 탭에 156건이 적혀 있으면 어긋나 보이기 때문입니다.
+  const forKind=rows.filter(r=>adMatch(r,'전체',adDoneFilter,adMediaQ));
   const kindCount={};
-  rows.forEach(r=>{ const k=adKindOf(r); kindCount[k]=(kindCount[k]||0)+1; });
+  forKind.forEach(r=>{ const k=adKindOf(r); kindCount[k]=(kindCount[k]||0)+1; });
   const kinds=Object.keys(kindCount).sort((a,b)=>kindCount[b]-kindCount[a]);
   if(adKind!=='전체' && !kinds.includes(adKind)) kinds.push(adKind);
   document.getElementById('ad-kinds').innerHTML=
     `<span style="font-size:11px;color:var(--text3);padding:0 8px 11px 0">품의 구분</span>`+
     ['전체'].concat(kinds).map(k=>
-      `<button class="tbtn${k===adKind?' active':''}" onclick="setAdKind('${esc(k)}')">${esc(k)}`+
-      ` <span style="opacity:.55;font-weight:500">${k==='전체'?rows.length:(kindCount[k]||0)}</span></button>`).join('');
+      `<button class="tbtn${k===adKind?' active':''}" data-k="${esc(k)}" onclick="setAdKind(this.dataset.k)">${esc(k)}`+
+      ` <span style="opacity:.55;font-weight:500">${k==='전체'?forKind.length:(kindCount[k]||0)}</span></button>`).join('');
 
-  const doneN=rows.filter(adDone).length;
+  const forStatus=rows.filter(r=>adMatch(r,adKind,'전체',adMediaQ));
+  const doneN=forStatus.filter(adDone).length;
   document.getElementById('ad-status').innerHTML=
     `<span style="font-size:11px;color:var(--text3);margin-right:2px">진행</span>`+
-    [['전체',rows.length],['완료',doneN],['미완료',rows.length-doneN]].map(([v,n])=>
+    [['전체',forStatus.length],['완료',doneN],['미완료',forStatus.length-doneN]].map(([v,n])=>
       `<button class="fbtn amber${v===adDoneFilter?' active':''}" onclick="setAdDoneFilter('${v}')">${v} <span style="opacity:.6">${n}</span></button>`).join('');
 
   drawAdSortHeads();
@@ -899,6 +920,7 @@ function drawAd(){
   const parts=[label];
   if(adKind!=='전체') parts.push(adKind);
   if(adDoneFilter!=='전체') parts.push(adDoneFilter);
+  if(adMediaQ) parts.push('언론사 "'+adMediaQ+'"');
   parts.push(`${list.length}건`, `${Math.round(listSum).toLocaleString()}천원`);
   if(NEWS.length) parts.push(`기사 링크 ${linked}개 연결`);
   document.getElementById('ad-list-sub').textContent=parts.join(' · ');
@@ -924,7 +946,11 @@ function titleCell(title, width){
 
 function adRowHtml(r){
   // 언론사·진행은 한 줄로 자르기 때문에 잘린 글자는 title 로 볼 수 있게 둡니다
-  return `<tr><td class="nowrap">${esc(r.year)}</td><td style="word-break:keep-all">${esc(r.media||'-')}</td>`+
+  const media=String(r.media||'').trim();
+  const mediaCell = media
+    ? `<td style="word-break:keep-all"><span class="mlink" title="${esc(media)}만 보기" data-m="${esc(media)}" onclick="setAdMediaQ(this.dataset.m)">${esc(media)}</span></td>`
+    : '<td style="color:var(--text3)">-</td>';
+  return `<tr><td class="nowrap">${esc(r.year)}</td>`+mediaCell+
     titleCell(r.title,'32%')+
     memoCell(r.memo)+
     `<td class="nowrap">${esc(r.kind||'-')}</td>`+
