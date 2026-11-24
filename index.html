@@ -1350,7 +1350,7 @@ function drawRefTable(id){
     `<th class="sort" onclick="setRefSort('${id}',${i})">${sortHead(c.replace(/\n/g,' '),refSort[id]&&refSort[id].key===i,(refSort[id]||{}).dir)}</th>`).join('');
   sec.innerHTML=
     `<div class="card">`+
-      `<div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:14px">`+
+      `<div style="display:flex;align-items:flex-start;flex-wrap:wrap;gap:20px">`+
         `<div><div class="ctitle">${esc(tab.name)}</div>`+
         `<div class="csub" style="margin-bottom:0">시트 「${esc(tab.sheet)}」 · ${rows.length}행${q?` · "${esc(q)}" 검색`:''}</div></div>`+
         `<input type="search" id="${id}-q" value="${esc(q)}" placeholder="표 안에서 검색" style="min-width:210px" oninput="drawRefTable('${id}')">`+
@@ -1431,7 +1431,7 @@ function drawRefDoctors(){
   const shown=groups.filter(hit);
   sec.innerHTML=
     `<div class="card">`+
-      `<div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:14px">`+
+      `<div style="display:flex;align-items:flex-start;flex-wrap:wrap;gap:20px">`+
         `<div><div class="ctitle">암병원 교수</div>`+
         `<div class="csub" style="margin-bottom:0">암종 ${groups.length}개 · 연인원 ${total}명 · 시트 「암병원 교수」${q?` · "${esc(q)}" 검색`:''}</div></div>`+
         `<input type="search" id="ref-doc-q" value="${esc(q)}" placeholder="암종·진료과·교수 검색" style="min-width:210px" oninput="drawRefDoctors()">`+
