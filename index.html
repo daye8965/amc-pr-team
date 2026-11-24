@@ -248,19 +248,22 @@ footer{text-align:center;padding:1.5rem;font-size:11px;color:var(--text3);border
 
 <!-- ⑤-2 언론사별 집행 -->
 <section class="sec" id="sec-admedia">
-  <div class="card" style="margin-bottom:1.5rem">
-    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
-      <input type="search" id="am-q" placeholder="언론사 검색" style="flex:1;min-width:200px" oninput="renderAdMedia()">
-      <select id="am-sort" onchange="renderAdMedia()">
-        <option value="amount">금액 많은 순</option>
-        <option value="count">건수 많은 순</option>
-        <option value="name">이름순</option>
-      </select>
+  <div class="card">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:14px">
+      <div>
+        <div class="ctitle">언론사 × 연도 집행 금액</div>
+        <div class="csub" id="am-count" style="margin-bottom:0">-</div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <input type="search" id="am-q" placeholder="언론사 검색" style="min-width:210px" oninput="renderAdMedia()">
+        <select id="am-sort" onchange="renderAdMedia()">
+          <option value="amount">금액 많은 순</option>
+          <option value="count">건수 많은 순</option>
+          <option value="name">이름순</option>
+        </select>
+      </div>
     </div>
-    <div style="margin-top:10px;font-size:12px;color:var(--text3)" id="am-count">-</div>
-  </div>
-  <div class="card"><div class="ctitle">언론사 × 연도 집행 금액</div><div class="csub">단위: 천원 · 언론사를 누르면 그 줄 바로 밑에 집행 내역이 펼쳐집니다</div>
-    <div style="overflow-x:auto"><table><thead id="am-thead"></thead><tbody id="am-tbody"></tbody></table>
+    <div style="overflow-x:auto;margin-top:16px"><table><thead id="am-thead"></thead><tbody id="am-tbody"></tbody></table>
       <div id="am-empty" class="empty" style="display:none">표시할 언론사가 없습니다</div></div>
   </div>
 </section>
@@ -936,7 +939,7 @@ function renderAdMedia(){
                      agg[b].total-agg[a].total);
 
   document.getElementById('am-count').textContent=
-    `${names.length}개 언론사 · 집행 ${rows.length}건 · 총 ${Math.round(rows.reduce((s,r)=>s+num(r.amount),0)).toLocaleString()}천원`;
+    `${names.length}개 언론사 · 집행 ${rows.length}건 · 총 ${Math.round(rows.reduce((s,r)=>s+num(r.amount),0)).toLocaleString()}천원 · 단위 천원`;
   document.getElementById('am-empty').style.display=names.length?'none':'block';
 
   const th=v=>`<th style="text-align:right">${esc(v)}</th>`;
