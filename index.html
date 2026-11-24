@@ -12,33 +12,35 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
 :root{
-  --bg:#fafbfc;--surface:#ffffff;--surface2:#f8f9fa;
-  --border:rgba(15,23,42,0.08);--text:#0f1729;--text2:#475569;--text3:#94a3b8;
-  --green:#059669;--blue:#0ea5e9;--amber:#d97706;--pink:#ec4899;--purple:#7c3aed;
+  /* 파란기를 뺀 따뜻한 중간 채도. 한 그래프에 한 색만 쓰고, 지금 보는 것만 --accent,
+     나머지는 --bar 로 눕힙니다. 계열이 여럿일 때만 sage → ochre → plum → greige 순서. */
+  --bg:#faf8f4;--surface:#ffffff;--surface2:#f6f3ed;
+  --border:rgba(42,39,36,0.10);--text:#2a2724;--text2:#5f584f;--text3:#a79f95;
+  --accent:#b5603f;--sage:#7c8a6f;--ochre:#c08a3e;--plum:#8a6a78;--greige:#a39c92;--bar:#e2d9cc;
   --r:12px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',-apple-system,'Segoe UI',sans-serif;font-size:14px;line-height:1.6}
 /* ── 레이아웃: 왼쪽 사이드바 + 본문 ── */
 .app{display:flex;min-height:100vh}
-.side{width:224px;flex:0 0 224px;background:#0f1729;color:#cbd5e1;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto}
+.side{width:224px;flex:0 0 224px;background:#2e2a26;color:#ddd6cc;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto}
 .side-top{padding:1.3rem 1.25rem;border-bottom:1px solid rgba(255,255,255,.08)}
-.side-top h1{font-size:1rem;font-weight:700;color:#fff;letter-spacing:-.01em;line-height:1.35}
-.side-top .sub{font-size:11px;color:#64748b;margin-top:5px;line-height:1.5}
+.side-top h1{font-size:13.5px;font-weight:700;color:#fff;letter-spacing:-.02em;line-height:1.35;white-space:nowrap}
+.side-top .sub{font-size:11px;color:#9a9087;margin-top:5px;line-height:1.5}
 .side-nav{padding:.9rem .75rem;flex:1}
-.sgroup{font-size:10px;font-weight:700;color:#475569;letter-spacing:.1em;padding:.9rem .6rem .45rem}
+.sgroup{font-size:10px;font-weight:700;color:#a39c92;letter-spacing:.1em;padding:.9rem .6rem .45rem}
 .sgroup:first-child{padding-top:.2rem}
-.snav{display:flex;align-items:center;gap:9px;width:100%;padding:9px 10px;margin-bottom:2px;border:none;background:none;color:#cbd5e1;font-family:inherit;font-size:13px;font-weight:500;text-align:left;border-radius:8px;cursor:pointer;transition:all .15s}
+.snav{display:flex;align-items:center;gap:9px;width:100%;padding:9px 10px;margin-bottom:2px;border:none;background:none;color:#ddd6cc;font-family:inherit;font-size:13px;font-weight:500;text-align:left;border-radius:8px;cursor:pointer;transition:all .15s}
 .snav:hover{background:rgba(255,255,255,.07);color:#fff}
-.snav.active{background:var(--blue);color:#fff;font-weight:600}
+.snav.active{background:var(--accent);color:#fff;font-weight:600}
 .snav .ico{font-size:14px;width:18px;text-align:center;flex:0 0 18px}
-.side-foot{padding:1rem 1.25rem;border-top:1px solid rgba(255,255,255,.08);font-size:10px;color:#475569;line-height:1.6}
+.side-foot{padding:1rem 1.25rem;border-top:1px solid rgba(255,255,255,.08);font-size:10px;color:#9a9087;line-height:1.6}
 .content{flex:1;min-width:0;display:flex;flex-direction:column}
 .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:1.1rem 2rem;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:5}
 .topbar h2{font-size:1.15rem;font-weight:700;letter-spacing:-.01em}
 .topbar .crumb{font-size:12px;color:var(--text3);margin-top:2px}
 .hbtn{padding:8px 16px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text2);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
-.hbtn:hover{border-color:var(--blue);color:var(--blue)}
+.hbtn:hover{border-color:var(--accent);color:var(--accent)}
 .burger{display:none;padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface);font-size:16px;cursor:pointer;line-height:1}
 .main{padding:1.75rem 2rem;flex:1}
 @media(max-width:900px){
@@ -54,9 +56,9 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',-apple-sy
 .mrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:1rem;margin-bottom:2rem}
 .mc{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1.4rem;position:relative;overflow:hidden}
 .mc::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
-.mc.g::before{background:var(--green)}.mc.b::before{background:var(--blue)}
-.mc.a::before{background:var(--amber)}.mc.p::before{background:var(--pink)}
-.mc.v::before{background:var(--purple)}
+.mc.g::before{background:var(--sage)}.mc.b::before{background:var(--accent)}
+.mc.a::before{background:var(--ochre)}.mc.p::before{background:var(--plum)}
+.mc.v::before{background:var(--greige)}
 .mlabel{font-size:11px;color:var(--text3);letter-spacing:.07em;margin-bottom:8px;font-weight:600}
 .mval{font-size:2rem;font-weight:700;letter-spacing:-.02em;line-height:1.1}
 .munit{font-size:.95rem;font-weight:500;color:var(--text3);margin-left:3px}
@@ -68,27 +70,27 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',-apple-sy
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem}
 @media(max-width:1100px){.g2{grid-template-columns:1fr}}
 .fbtn{padding:6px 14px;border-radius:20px;border:1px solid var(--border);background:none;font-size:12px;font-weight:500;cursor:pointer;color:var(--text2);font-family:inherit;white-space:nowrap}
-.fbtn:hover{border-color:var(--blue);color:var(--blue)}
-.fbtn.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+.fbtn:hover{border-color:var(--accent);color:var(--accent)}
+.fbtn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
 .frow{display:flex;gap:6px;flex-wrap:wrap}
 /* 품의 구분은 '탭', 진행은 '칩'. 성격이 다른 필터라서 모양과 색을 갈라 둡니다. */
 .tabrow{display:flex;gap:2px;flex-wrap:wrap;align-items:flex-end;border-bottom:1px solid var(--border)}
 .tbtn{padding:8px 13px;border:none;background:none;font-family:inherit;font-size:12.5px;font-weight:600;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
 .tbtn:hover{color:var(--text)}
-.tbtn.active{color:var(--blue);border-bottom-color:var(--blue)}
-.fbtn.amber:hover{border-color:var(--amber);color:var(--amber)}
-.fbtn.amber.active{background:var(--amber);border-color:var(--amber);color:#fff}
+.tbtn.active{color:var(--accent);border-bottom-color:var(--accent)}
+.fbtn.alt:hover{border-color:var(--ochre);color:var(--ochre)}
+.fbtn.alt.active{background:var(--ochre);border-color:var(--ochre);color:#fff}
 .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:8px;overflow:hidden}
 .cal .hd{background:var(--surface2);padding:7px 8px;font-size:11px;font-weight:600;color:var(--text3);text-align:center}
 .cal .dc{background:var(--surface);min-height:96px;padding:6px 7px}
 .cal .dc.out{background:var(--surface2)}
-.cal .dc.sel{background:#eff6ff;box-shadow:inset 0 0 0 2px var(--blue)}
+.cal .dc.sel{background:#f8f0ea;box-shadow:inset 0 0 0 2px var(--accent)}
 .cal .dn{font-size:11px;color:var(--text3);margin-bottom:4px}
-.cal .dc.sun .dn{color:#dc2626}
-.cal .ev{display:block;width:100%;text-align:left;font-family:inherit;font-size:11px;line-height:1.35;background:#e0f2fe;color:#075985;border:0;border-radius:4px;padding:3px 5px;margin-bottom:3px;cursor:pointer}
-.cal .ev:hover{background:#bae6fd}
+.cal .dc.sun .dn{color:#b0503c}
+.cal .ev{display:block;width:100%;text-align:left;font-family:inherit;font-size:11px;line-height:1.35;background:#f4e7e1;color:#7d3f27;border:0;border-radius:4px;padding:3px 5px;margin-bottom:3px;cursor:pointer}
+.cal .ev:hover{background:#ecd8cf}
 .mlink{cursor:pointer;border-bottom:1px dashed var(--border)}
-.mlink:hover{color:var(--blue);border-bottom-color:var(--blue)}
+.mlink:hover{color:var(--accent);border-bottom-color:var(--accent)}
 /* 칼럼이 몇 개 없는 표가 넓은 화면에서 끝까지 늘어나면 칼럼 사이가 한 뼘씩 벌어집니다.
    내용 폭만 차지하게 두고(max-width 로 넘치지만 않게), 긴 글이 있는 표만 알아서 넓어지게 합니다. */
 table{width:auto;max-width:100%;border-collapse:collapse;font-size:13px}
@@ -106,15 +108,15 @@ table.fixed th,table.fixed td{padding:6px 8px}
 /* 고정 레이아웃에서는 nowrap 셀이 칸을 넘어 옆 칼럼 글자를 덮습니다. 넘치면 … 로 자릅니다. */
 table.fixed td.nowrap{overflow:hidden;text-overflow:ellipsis}
 th.sort{cursor:pointer;user-select:none}
-th.sort:hover{color:var(--blue)}
-th.sort.on{color:var(--blue)}
+th.sort:hover{color:var(--accent)}
+th.sort.on{color:var(--accent)}
 table.fixed td{word-break:break-word}
 .pill{display:inline-block;padding:2px 9px;border-radius:12px;font-size:11px;font-weight:600;white-space:nowrap}
-.src-언론{background:#e0f2fe;color:#075985}
-.src-광고{background:#fef3c7;color:#92400e}
-.src-도움말{background:#dcfce7;color:#166534}
+.src-언론{background:#f4e7e1;color:#7d3f27}
+.src-광고{background:#f7ecd6;color:#7d5618}
+.src-도움말{background:#e8ece2;color:#4a5740}
 input[type=search],select{padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px;background:var(--surface);color:var(--text)}
-.spin{width:26px;height:26px;border:3px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite;flex:0 0 auto}
+.spin{width:26px;height:26px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;flex:0 0 auto}
 @keyframes spin{to{transform:rotate(360deg)}}
 footer{text-align:center;padding:1.5rem;font-size:11px;color:var(--text3);border-top:1px solid var(--border);margin-top:2rem}
 .empty{text-align:center;padding:2rem;color:var(--text3);font-size:13px}
@@ -126,7 +128,7 @@ footer{text-align:center;padding:1.5rem;font-size:11px;color:var(--text3);border
 
 <aside class="side" id="side">
   <div class="side-top">
-    <h1>홍보팀 언론유닛<br>대시보드</h1>
+    <h1>홍보팀 언론유닛 대시보드</h1>
     <div class="sub">서울아산병원 홍보팀<br>구글 시트 「언론유닛 업무 공유」<br>제작: 이다예</div>
   </div>
   <nav class="side-nav" id="nav"></nav>
@@ -169,8 +171,8 @@ footer{text-align:center;padding:1.5rem;font-size:11px;color:var(--text3);border
     <div style="margin-top:8px;font-size:12px;color:var(--text3)">실패 원인: <span id="load-reason">-</span></div>
   </div>
   <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-    <button id="retry" onclick="loadFeed()" style="padding:8px 16px;background:var(--blue);color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:12px;font-family:inherit">다시 시도</button>
-    <a id="feed-link" href="#" target="_blank" rel="noopener" style="font-size:12px;color:var(--blue)">엔드포인트 직접 열어보기</a>
+    <button id="retry" onclick="loadFeed()" style="padding:8px 16px;background:var(--accent);color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:12px;font-family:inherit">다시 시도</button>
+    <a id="feed-link" href="#" target="_blank" rel="noopener" style="font-size:12px;color:var(--accent)">엔드포인트 직접 열어보기</a>
   </div>
 </div>
 
@@ -437,9 +439,9 @@ async function loadNews(){
 const CACHE_KEY = 'amc-pr-team:feed:v1';
 const CACHE_MAX_AGE = 7*24*60*60*1000;
 const SOURCES = ['언론','광고','도움말'];
-const SRC_COLOR = {'언론':'#0ea5e9','광고':'#d97706','도움말':'#059669'};
-const PALETTE = ['#0ea5e9','#059669','#d97706','#ec4899','#7c3aed','#0f766e','#b45309','#be123c','#1d4ed8','#4d7c0f'];
-const tx='#64748b', gr='rgba(15,23,42,0.06)';
+const SRC_COLOR = {'언론':'#b5603f','광고':'#c08a3e','도움말':'#7c8a6f'};
+const PALETTE = ['#b5603f','#7c8a6f','#c08a3e','#8a6a78','#a39c92','#8c4f33','#5f6b55','#9c6f2e','#6e5460','#c6b9a8'];
+const tx='#8a8178', gr='rgba(42,39,36,0.07)';
 
 /* ── 담당자 이름 ── */
 const TEAM_LABEL='유닛 공통';
@@ -876,7 +878,7 @@ function drawAd(){
   destroyChart('c-ad-year');
   new Chart(document.getElementById('c-ad-year'),{type:'bar',
     data:{labels:ys,datasets:[{data:ys.map(y=>Math.round(byYear[y]||0)),
-      backgroundColor:ys.map(y=>(adYear==='전체'||y===adYear)?'#d97706':'rgba(217,119,6,.25)'),borderRadius:4,borderWidth:0}]},
+      backgroundColor:ys.map(y=>(adYear==='전체'||y===adYear)?'#c08a3e':'#e2d9cc'),borderRadius:4,borderWidth:0}]},
     options:{responsive:true,maintainAspectRatio:false,animation:false,
       onClick:(e,els)=>{ if(els.length) setAdYear(ys[els[0].index]); },
       plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y.toLocaleString()+'천원'}}},
@@ -886,7 +888,7 @@ function drawAd(){
   const top15=topMedia.slice(0,15);
   destroyChart('c-ad-media');
   new Chart(document.getElementById('c-ad-media'),{type:'bar',
-    data:{labels:top15,datasets:[{data:top15.map(m=>Math.round(byMedia[m])),backgroundColor:'#b45309',borderRadius:3,borderWidth:0}]},
+    data:{labels:top15,datasets:[{data:top15.map(m=>Math.round(byMedia[m])),backgroundColor:'#c08a3e',borderRadius:3,borderWidth:0}]},
     options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,animation:false,
       plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.x.toLocaleString()+'천원'}}},
       scales:{x:{grid:{color:gr},ticks:{color:tx},beginAtZero:true},y:{grid:{display:false},ticks:{color:tx,font:{size:11}}}}}});
@@ -910,7 +912,7 @@ function drawAd(){
   document.getElementById('ad-status').innerHTML=
     `<span style="font-size:11px;color:var(--text3);margin-right:2px">진행</span>`+
     [['전체',forStatus.length],['완료',doneN],['미완료',forStatus.length-doneN]].map(([v,n])=>
-      `<button class="fbtn amber${v===adDoneFilter?' active':''}" onclick="setAdDoneFilter('${v}')">${v} <span style="opacity:.6">${n}</span></button>`).join('');
+      `<button class="fbtn alt${v===adDoneFilter?' active':''}" onclick="setAdDoneFilter('${v}')">${v} <span style="opacity:.6">${n}</span></button>`).join('');
 
   drawAdSortHeads();
   const list=adListRows(rows);
@@ -937,7 +939,7 @@ function titleCell(title, width){
   const safe=esc(title);
   if(!list.length) return `<td style="word-break:keep-all;white-space:pre-line">${safe}</td>`;
   const links=list.map(a=>
-    `<div style="margin-top:4px"><a href="${esc(a.u)}" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:none;font-size:12px">`+
+    `<div style="margin-top:4px"><a href="${esc(a.u)}" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none;font-size:12px">`+
     `🔗 ${esc(a.t)}</a><span style="font-size:11px;color:var(--text3)"> · ${esc(a.m)} · ${esc(a.d)}</span></div>`).join('');
   return `<td style="word-break:keep-all">`+
     `<div style="white-space:pre-line">${safe}</div>${links}</td>`;
@@ -997,7 +999,7 @@ function renderAdMedia(){
   const money=v=>v?Math.round(v).toLocaleString():'<span style="color:var(--text3)">·</span>';
   document.getElementById('am-tbody').innerHTML=names.map(n=>
     `<tr${n===amSelected?' style="background:var(--surface2)"':''}>`+
-    `<td class="nowrap"><button onclick="selectAdMedia('${esc(n).replace(/'/g,"\\'")}')" style="border:none;background:none;padding:0;font:inherit;font-weight:600;color:var(--blue);cursor:pointer;text-align:left">${esc(n)}</button></td>`+
+    `<td class="nowrap"><button onclick="selectAdMedia('${esc(n).replace(/'/g,"\\'")}')" style="border:none;background:none;padding:0;font:inherit;font-weight:600;color:var(--accent);cursor:pointer;text-align:left">${esc(n)}</button></td>`+
     ys.map(y=>`<td class="nowrap" style="text-align:right">${money(agg[n].byYear[y])}</td>`).join('')+
     `<td class="nowrap" style="text-align:right;font-weight:700">${money(agg[n].total)}</td>`+
     `<td class="nowrap" style="text-align:right">${agg[n].count}</td></tr>`).join('');
@@ -1117,7 +1119,7 @@ function drawPress(){
   destroyChart('c-pr-month');
   new Chart(document.getElementById('c-pr-month'),{type:'bar',
     data:{labels:['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'],
-      datasets:[{data:cnt,backgroundColor:cnt.map((_,i)=>(i+1===prMonth)?'#0ea5e9':'rgba(14,165,233,.3)'),borderRadius:4,borderWidth:0,maxBarThickness:26}]},
+      datasets:[{data:cnt,backgroundColor:cnt.map((_,i)=>(i+1===prMonth)?'#b5603f':'#e2d9cc'),borderRadius:4,borderWidth:0,maxBarThickness:26}]},
     options:{responsive:true,maintainAspectRatio:false,animation:false,
       onClick:(e,els)=>{ if(els.length) setPrMonth(els[0].index+1); },
       plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y+'건'}}},
@@ -1130,7 +1132,7 @@ function drawPress(){
   const cntY=cmp.map(y=>all.filter(r=>String(r.year)===y).length);
   destroyChart('c-pr-year');
   new Chart(document.getElementById('c-pr-year'),{type:'bar',
-    data:{labels:cmp,datasets:[{data:cntY,backgroundColor:cmp.map(y=>y===prYear?'#0ea5e9':'rgba(14,165,233,.3)'),borderRadius:4,borderWidth:0,maxBarThickness:36}]},
+    data:{labels:cmp,datasets:[{data:cntY,backgroundColor:cmp.map(y=>y===prYear?'#b5603f':'#e2d9cc'),borderRadius:4,borderWidth:0,maxBarThickness:36}]},
     options:{responsive:true,maintainAspectRatio:false,animation:false,
       onClick:(e,els)=>{ if(els.length) setPrYear(cmp[els[0].index]); },
       plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y+'건'}}},
@@ -1258,7 +1260,7 @@ async function startPdf(){
   const btn=document.getElementById('pdf-btn');
   const old=btn.textContent; btn.textContent='생성 중...'; btn.disabled=true;
   try{
-    const canvas=await html2canvas(document.getElementById('sec-'+id),{scale:2,useCORS:true,backgroundColor:'#fafbfc',logging:false,windowWidth:1400});
+    const canvas=await html2canvas(document.getElementById('sec-'+id),{scale:2,useCORS:true,backgroundColor:'#faf8f4',logging:false,windowWidth:1400});
     const {jsPDF}=window.jspdf;
     const pdf=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
     const W=pdf.internal.pageSize.getWidth(), H=pdf.internal.pageSize.getHeight();
