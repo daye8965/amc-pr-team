@@ -102,7 +102,6 @@ th.sort.on{color:var(--blue)}
 table.fixed td{word-break:break-word}
 .pill{display:inline-block;padding:2px 9px;border-radius:12px;font-size:11px;font-weight:600;white-space:nowrap}
 .src-언론{background:#e0f2fe;color:#075985}
-.src-SNS{background:#fce7f3;color:#9d174d}
 .src-광고{background:#fef3c7;color:#92400e}
 .src-도움말{background:#dcfce7;color:#166534}
 input[type=search],select{padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px;background:var(--surface);color:var(--text)}
@@ -174,7 +173,7 @@ footer{text-align:center;padding:1.5rem;font-size:11px;color:var(--text3);border
     <div class="card"><div class="ctitle">연도별 업무 건수</div><div class="csub">구분 누적</div>
       <div class="cwrap" style="height:300px"><canvas id="c-ov-year"></canvas></div></div>
   </div>
-  <div class="card"><div class="ctitle">연동된 시트 탭</div><div class="csub">탭별로 몇 건씩 들어왔는지</div>
+  <div class="card"><div class="ctitle">연동된 시트 탭</div><div class="csub" id="ov-tabs-sub">탭별로 몇 건씩 들어왔는지</div>
     <div style="overflow-x:auto"><table><thead><tr><th>탭</th><th>종류</th><th style="text-align:right">건수</th><th>비고</th></tr></thead><tbody id="ov-tabs"></tbody></table></div></div>
 </section>
 
@@ -188,7 +187,7 @@ footer{text-align:center;padding:1.5rem;font-size:11px;color:var(--text3);border
   </div>
   <div class="mrow" id="wl-metrics"></div>
   <div class="card"><div class="ctitle">담당자별 업무량</div>
-    <div class="csub">언론 업무의 담당, SNS의 기획·편집을 모두 1건으로 셉니다. 공동 담당은 참여자 각자에게 1건씩</div>
+    <div class="csub">공동 담당은 참여자 각자에게 1건씩 셉니다</div>
     <div class="cwrap" id="wl-wrap" style="height:420px"><canvas id="c-wl"></canvas></div></div>
   <div class="card"><div class="ctitle">담당자 × 업무 구분</div><div class="csub">건수 기준</div>
     <div style="overflow-x:auto"><table><thead id="wl-thead"></thead><tbody id="wl-tbody"></tbody></table></div>
@@ -218,18 +217,6 @@ footer{text-align:center;padding:1.5rem;font-size:11px;color:var(--text3);border
   </div>
 </section>
 
-<!-- ④ SNS -->
-<section class="sec" id="sec-sns">
-  <div class="mrow" id="sns-metrics"></div>
-  <div class="g2">
-    <div class="card"><div class="ctitle">연도별 제작 건수</div><div class="csub">형식 누적</div>
-      <div class="cwrap" style="height:300px"><canvas id="c-sns-year"></canvas></div></div>
-    <div class="card"><div class="ctitle">분류별 비중</div><div class="csub">전체 기간</div>
-      <div class="cwrap" style="height:300px"><canvas id="c-sns-cat"></canvas></div></div>
-  </div>
-  <div class="card"><div class="ctitle">조회수 상위 콘텐츠</div><div class="csub">조회수가 기록된 건만</div>
-    <div style="overflow-x:auto"><table class="fixed" style="min-width:640px"><colgroup><col style="width:52px"><col style="width:48px"><col style="width:min(420px,40%)"><col style="width:88px"><col style="width:84px"><col style="width:84px"><col style="width:84px"><col></colgroup><thead><tr><th>연도</th><th>월</th><th>주제</th><th>형식</th><th>기획</th><th>편집</th><th style="text-align:right">조회수</th></tr></thead><tbody id="sns-top"></tbody></table></div></div>
-</section>
 
 <!-- ⑤ 광고·협찬 -->
 <section class="sec" id="sec-ad">
@@ -413,8 +400,8 @@ async function loadNews(){
 
 const CACHE_KEY = 'amc-pr-team:feed:v1';
 const CACHE_MAX_AGE = 7*24*60*60*1000;
-const SOURCES = ['언론','SNS','광고','도움말'];
-const SRC_COLOR = {'언론':'#0ea5e9','SNS':'#ec4899','광고':'#d97706','도움말':'#059669'};
+const SOURCES = ['언론','광고','도움말'];
+const SRC_COLOR = {'언론':'#0ea5e9','광고':'#d97706','도움말':'#059669'};
 const PALETTE = ['#0ea5e9','#059669','#d97706','#ec4899','#7c3aed','#0f766e','#b45309','#be123c','#1d4ed8','#4d7c0f'];
 const tx='#64748b', gr='rgba(15,23,42,0.06)';
 
@@ -431,9 +418,8 @@ function staffNames(raw){
   });
   return out;
 }
-/** 한 업무에 참여한 사람들. 언론은 담당, SNS는 기획+편집. */
+/** 한 업무에 참여한 사람들. 공동 담당은 각자 1건으로 셉니다. */
 function workStaff(r){
-  if(r.source==='SNS') return [...new Set([...staffNames(r.planner),...staffNames(r.editor)])];
   return staffNames(r.staff);
 }
 
@@ -537,7 +523,6 @@ const TABS=[
   {id:'overview', group:'현황',      name:'전체 현황',   icon:'📊', crumb:'전체 업무를 한눈에',           draw:()=>drawOverview()},
   {id:'workload', group:'현황',      name:'업무량 분석', icon:'⚖️', crumb:'담당자별 업무 배분',           draw:()=>drawWorkload()},
   {id:'list',     group:'업무 내역', name:'업무 목록',   icon:'📋', crumb:'전체 업무 검색 · 필터',        draw:()=>drawList()},
-  {id:'sns',      group:'업무 내역', name:'SNS 콘텐츠',  icon:'🎬', crumb:'유튜브 제작 현황과 조회수',    draw:()=>drawSns()},
   {id:'ad',       group:'업무 내역', name:'광고·협찬',   icon:'💰', crumb:'연도별 광고 집행 내역',        draw:()=>drawAd()},
   {id:'admedia',  group:'업무 내역', name:'언론사별 집행', icon:'🏷️', crumb:'언론사별 집행 금액과 내역',    draw:()=>drawAdMedia()},
   {id:'help',     group:'업무 내역', name:'도움말자료',  icon:'🗓️', crumb:'연도별 기획 캘린더',           draw:()=>drawHelp()},
@@ -613,6 +598,10 @@ function drawOverview(){
       plugins:{legend:{position:'bottom',labels:{color:tx,font:{size:11},padding:10,boxWidth:12}}},
       scales:{x:{stacked:true,grid:{display:false},ticks:{color:tx}},y:{stacked:true,grid:{color:gr},ticks:{color:tx},beginAtZero:true}}}});
 
+  // 스크립트 버전을 같이 찍습니다. Apps Script 를 고치고 재배포했는지 여기서 바로 보입니다.
+  const sv=FEED.meta&&FEED.meta.script;
+  document.getElementById('ov-tabs-sub').textContent=
+    '탭별로 몇 건씩 들어왔는지' + (sv?' · 스크립트 '+sv:' · 스크립트 버전 표기 전');
   document.getElementById('ov-tabs').innerHTML=(FEED.meta&&FEED.meta.tabs||[]).map(t=>
     `<tr><td class="nowrap">${esc(t.name)}</td><td class="nowrap">${t.kind==='work'?'업무 기록':'참조 자료'}</td>`+
     `<td class="nowrap" style="text-align:right;font-weight:600">${t.rows.toLocaleString()}</td>`+
@@ -679,7 +668,7 @@ function drawWorkload(){
       srcs.map(x=>td(srcTotal[x],true)).join('')+td(assign,true)+td('100%',true)+'</tr>':'');
   document.getElementById('wl-note').innerHTML=
     `업무 ${rows.length}건 · 담당 배정 ${assign}건. 공동 담당 건은 참여자 각자에게 1건씩 집계되어 합계가 업무 건수보다 큽니다. `+
-    `SNS는 기획·편집을 모두 담당으로 봅니다. 도움말자료·광고처럼 담당이 적히지 않는 탭은 담당자 집계에서 빠집니다.`;
+    `도움말자료·광고처럼 담당이 적히지 않는 탭은 담당자 집계에서 빠집니다.`;
 }
 
 /* ── ③ 업무 목록 ── */
@@ -715,7 +704,7 @@ function renderList(){
   document.getElementById('list-count').textContent=`${rows.length.toLocaleString()}건`;
   document.getElementById('list-empty').style.display=rows.length?'none':'block';
   document.getElementById('list-tbody').innerHTML=rows.slice(0,800).map(r=>{
-    const who=r.source==='SNS'?[r.planner,r.editor].filter(Boolean).join(' / '):(r.staff||'');
+    const who=r.staff||'';
     return `<tr><td class="nowrap"><span class="pill src-${r.source}">${r.source}</span></td>`+
       `<td class="nowrap">${esc(r.year)}</td><td class="nowrap">${esc(r.month)}${/^\d+$/.test(String(r.month))?'월':''}</td>`+
       `<td style="white-space:pre-line;word-break:keep-all">${esc(who||'-')}</td>`+
@@ -723,44 +712,6 @@ function renderList(){
       `<td style="white-space:pre-line;color:var(--text3)">${esc(r.dept||'-')}</td>`+
       `<td style="font-size:12px">${esc(r.media||r.note||r.anniversary||'-')}</td></tr>`;
   }).join('')+(rows.length>800?`<tr><td colspan="7" class="empty">앞 800건만 표시했습니다. 검색이나 필터로 범위를 좁혀주세요 (전체 ${rows.length.toLocaleString()}건)</td></tr>`:'');
-}
-
-/* ── ④ SNS ── */
-function drawSns(){
-  const rows=WORK.filter(r=>r.source==='SNS');
-  const ys=[...new Set(rows.map(r=>String(r.year)))].sort();
-  const fmts=[...new Set(rows.map(r=>r.format).filter(Boolean))];
-  const cats={}; rows.forEach(r=>{ const c=r.category||'미분류'; cats[c]=(cats[c]||0)+1; });
-  const viewRows=rows.filter(r=>num(r.views)>0);
-  const totalViews=viewRows.reduce((s,r)=>s+num(r.views),0);
-
-  document.getElementById('sns-metrics').innerHTML=
-    `<div class="mc p"><div class="mlabel">제작 콘텐츠</div><div class="mval">${rows.length}<span class="munit">건</span></div><div class="msub">${ys[0]||'-'}~${ys[ys.length-1]||'-'}</div></div>`+
-    `<div class="mc b"><div class="mlabel">누적 조회수</div><div class="mval">${Math.round(totalViews).toLocaleString()}</div><div class="msub">조회수 기록된 ${viewRows.length}건</div></div>`+
-    `<div class="mc g"><div class="mlabel">건당 평균 조회수</div><div class="mval">${viewRows.length?Math.round(totalViews/viewRows.length).toLocaleString():0}</div><div class="msub">기록된 건 기준</div></div>`+
-    `<div class="mc a"><div class="mlabel">형식</div><div class="mval">${fmts.length}<span class="munit">종</span></div><div class="msub">${esc(fmts.slice(0,3).join(', '))}</div></div>`;
-
-  const byYF={}; rows.forEach(r=>{const y=String(r.year),f=r.format||'기타';if(!byYF[y])byYF[y]={};byYF[y][f]=(byYF[y][f]||0)+1;});
-  destroyChart('c-sns-year');
-  new Chart(document.getElementById('c-sns-year'),{type:'bar',
-    data:{labels:ys,datasets:(fmts.length?fmts:['기타']).map((f,i)=>({label:f,data:ys.map(y=>(byYF[y]&&byYF[y][f])||0),backgroundColor:PALETTE[i%PALETTE.length],borderWidth:0}))},
-    options:{responsive:true,maintainAspectRatio:false,animation:false,
-      plugins:{legend:{position:'bottom',labels:{color:tx,font:{size:11},padding:10,boxWidth:12}}},
-      scales:{x:{stacked:true,grid:{display:false},ticks:{color:tx}},y:{stacked:true,grid:{color:gr},ticks:{color:tx},beginAtZero:true}}}});
-
-  const ck=Object.keys(cats).sort((a,b)=>cats[b]-cats[a]);
-  destroyChart('c-sns-cat');
-  new Chart(document.getElementById('c-sns-cat'),{type:'doughnut',
-    data:{labels:ck,datasets:[{data:ck.map(c=>cats[c]),backgroundColor:ck.map((_,i)=>PALETTE[i%PALETTE.length]),borderWidth:0}]},
-    options:{responsive:true,maintainAspectRatio:false,cutout:'58%',animation:false,
-      plugins:{legend:{position:'right',labels:{color:tx,font:{size:11},padding:8,boxWidth:12}}}}});
-
-  document.getElementById('sns-top').innerHTML=viewRows.slice().sort((a,b)=>num(b.views)-num(a.views)).slice(0,20).map(r=>
-    `<tr><td class="nowrap">${esc(r.year)}</td><td class="nowrap">${esc(r.month)}</td>`+
-    `<td style="max-width:360px;word-break:keep-all">${esc(r.title)}</td>`+
-    `<td class="nowrap">${esc(r.format||'-')}</td><td class="nowrap">${esc(r.planner||'-')}</td><td class="nowrap">${esc(r.editor||'-')}</td>`+
-    `<td class="nowrap" style="text-align:right;font-weight:600">${Math.round(num(r.views)).toLocaleString()}</td></tr>`).join('')
-    || '<tr><td colspan="7" class="empty">조회수가 기록된 콘텐츠가 없습니다</td></tr>';
 }
 
 /* ── ⑤ 광고·협찬 ── */

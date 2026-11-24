@@ -18,6 +18,9 @@
  *     refs: { "탭이름": {columns:[...], rows:[[...]]} } }
  */
 
+/** 고칠 때마다 올리세요. 대시보드 '전체 현황' 맨 아래에 찍혀서, 재배포가 먹었는지 바로 보입니다. */
+const SCRIPT_VERSION = '2026-11-24a';
+
 const SPREADSHEET_ID = '15mRKud-otGhbvY5efenonaZxjlHGKRMhDU9LmoAA2WA';
 
 /** 연락처 열은 공개 페이지에 올리지 않습니다. 헤더 이름이 걸리면 통째로 버립니다. */
@@ -32,12 +35,6 @@ const WORK_TABS = [
     sheet: '언론 업무', source: '언론',
     map: {year:'년도', month:'월', day:'게재일', type:'구분', staff:'담당',
           title:'제목/내용', dept:'진료과', doctor:'의료진', media:'배포범위', note:'비고'}
-  },
-  {
-    sheet: 'SNS', source: 'SNS',
-    map: {year:'년도', month:'제작월', format:'형식', category:'분류', views:'조회수',
-          title:'주제', planner:'기획', editor:'편집', dept:'진료과(팀)',
-          doctor:'교수(출연자)', done:'완료'}
   },
   {
     sheet: '광고/협찬', source: '광고',
@@ -59,9 +56,10 @@ const WORK_TABS = [
  * 헤더를 찾아 그대로 표로 내보냅니다. 연락처 열은 빠집니다.
  */
 const REF_TABS = [
-  // headerRow 를 주면 그 줄(0부터)을 헤더로 씁니다.
-  // 암병원 교수는 1행이 제목 배너, 2행이 암종(폐암/위암...) 머리글이라 자동 탐지가 사람 이름 줄을 집습니다.
-  {sheet: '암병원 교수', headerRow: 1},
+  // headerRow 를 주면 그 줄(0부터)을, headerRows 를 주면 여러 줄을 합쳐 헤더로 씁니다.
+  // 암병원 교수는 2행이 암종(폐암/위암...), 3행이 소속/교수라 두 줄을 합쳐야 '폐암 교수' 가 됩니다.
+  // 자동 탐지에 맡기면 사람 이름이 적힌 4행을 머리글로 집습니다.
+  {sheet: '암병원 교수', headerRows: [1, 2]},
   {sheet: '언론사 인터뷰 후보 리스트'},
   {sheet: '명의 출연진'},
   {sheet: '의료진 홍보 관련 특이사항'}
@@ -82,7 +80,7 @@ function doGet() {
 
 function buildFeed_() {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const meta = {generatedAt: new Date().toISOString(), tabs: []};
+  const meta = {generatedAt: new Date().toISOString(), script: SCRIPT_VERSION, tabs: []};
   const work = [];
   const refs = {};
 
@@ -129,10 +127,11 @@ function buildFeed_() {
     if (!sheet) { meta.tabs.push({name: name, kind: 'ref', rows: 0, error: '탭 없음'}); return; }
 
     const values = sheet.getDataRange().getDisplayValues();
-    const headerRow = def.headerRow !== undefined ? def.headerRow : findRefHeaderRow_(values);
+    const headerRows = def.headerRows || [def.headerRow !== undefined ? def.headerRow : findRefHeaderRow_(values)];
+    const headerRow = headerRows[headerRows.length - 1];
     if (headerRow < 0 || headerRow >= values.length) { meta.tabs.push({name: name, kind: 'ref', rows: 0, error: '헤더 못 찾음'}); return; }
 
-    const header = values[headerRow];
+    const header = combineHeader_(values, headerRows);
     const keep = [];
     header.forEach(function (h, i) {
       const t = String(h || '').trim();
@@ -156,6 +155,32 @@ function buildFeed_() {
 }
 
 /* ── 헬퍼 ── */
+
+/**
+ * 머리글 줄 여러 개를 한 줄로 합칩니다(예: '폐암' + '교수' → '폐암 교수').
+ * 윗줄은 가로 병합이라 첫 칸에만 값이 있고 나머지는 빈칸이므로 앞 값을 이어 씁니다.
+ * 맨 아랫줄은 실제 열 이름이라 이어 쓰지 않습니다 — 빈 칸은 빈 채로 둬야 버릴 수 있습니다.
+ */
+function combineHeader_(values, idxs) {
+  const last = idxs[idxs.length - 1];
+  const width = (values[last] || []).length;
+  const out = [];
+  for (var c = 0; c < width; c++) out.push([]);
+  idxs.forEach(function (r) {
+    var carry = '';
+    for (var c = 0; c < width; c++) {
+      var v = String(((values[r] || [])[c]) || '').trim();
+      if (v) carry = v;
+      out[c].push(r === last ? v : carry);
+    }
+  });
+  return out.map(function (parts) {
+    const seen = [];
+    parts.forEach(function (v) { if (v && seen.indexOf(v) < 0) seen.push(v); });
+    return seen.join(' ');
+  });
+}
+
 
 function norm_(v) { return String(v || '').replace(/\s+/g, ''); }
 function objValues_(o) { return Object.keys(o).map(function (k) { return o[k]; }); }
