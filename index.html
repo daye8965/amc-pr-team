@@ -78,6 +78,15 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',-apple-sy
 .tbtn.active{color:var(--blue);border-bottom-color:var(--blue)}
 .fbtn.amber:hover{border-color:var(--amber);color:var(--amber)}
 .fbtn.amber.active{background:var(--amber);border-color:var(--amber);color:#fff}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.cal .hd{background:var(--surface2);padding:7px 8px;font-size:11px;font-weight:600;color:var(--text3);text-align:center}
+.cal .dc{background:var(--surface);min-height:96px;padding:6px 7px}
+.cal .dc.out{background:var(--surface2)}
+.cal .dc.sel{background:#eff6ff;box-shadow:inset 0 0 0 2px var(--blue)}
+.cal .dn{font-size:11px;color:var(--text3);margin-bottom:4px}
+.cal .dc.sun .dn{color:#dc2626}
+.cal .ev{display:block;width:100%;text-align:left;font-family:inherit;font-size:11px;line-height:1.35;background:#e0f2fe;color:#075985;border:0;border-radius:4px;padding:3px 5px;margin-bottom:3px;cursor:pointer}
+.cal .ev:hover{background:#bae6fd}
 .mlink{cursor:pointer;border-bottom:1px dashed var(--border)}
 .mlink:hover{color:var(--blue);border-bottom-color:var(--blue)}
 /* 칼럼이 몇 개 없는 표가 넓은 화면에서 끝까지 늘어나면 칼럼 사이가 한 뼘씩 벌어집니다.
@@ -291,29 +300,36 @@ footer{text-align:center;padding:1.5rem;font-size:11px;color:var(--text3);border
   </div>
 </section>
 
-<!-- ⑥-2 언론 보도 -->
-<section class="sec" id="sec-news">
-  <div class="mrow" id="news-metrics"></div>
-  <div class="g2">
-    <div class="card"><div class="ctitle">월별 보도 건수</div><div class="csub">수집된 서울아산병원 기사</div>
-      <div class="cwrap" style="height:300px"><canvas id="c-news-month"></canvas></div></div>
-    <div class="card"><div class="ctitle">매체별 보도 TOP15</div><div class="csub">건수</div>
-      <div class="cwrap" style="height:380px"><canvas id="c-news-media"></canvas></div></div>
-  </div>
+<!-- ⑥ 보도자료 배포 -->
+<section class="sec" id="sec-press">
   <div class="card" style="margin-bottom:1.5rem">
-    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
-      <input type="search" id="nw-q" placeholder="제목·교수명·기자명 검색" style="flex:1;min-width:220px" oninput="renderNews()">
-      <select id="nw-media" onchange="renderNews()"><option value="">매체 전체</option></select>
-      <select id="nw-month" onchange="renderNews()"><option value="">월 전체</option></select>
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+      <div><div class="ctitle">연도 선택</div><div class="csub" style="margin-bottom:0">시트 「언론 업무」에서 구분이 보도자료인 건만 모았습니다</div></div>
+      <div class="frow" id="pr-years"></div>
     </div>
-    <div style="margin-top:10px;font-size:12px;color:var(--text3)" id="nw-count">-</div>
   </div>
-  <div class="card">
-    <div style="overflow-x:auto"><table class="fixed" style="min-width:700px">
-      <colgroup><col style="width:92px"><col style="width:124px"><col style="width:min(620px,48%)"><col style="width:110px"><col style="width:92px"><col></colgroup>
-      <thead><tr><th>날짜</th><th>매체</th><th>제목</th><th>교수</th><th>기자</th></tr></thead>
-      <tbody id="nw-tbody"></tbody></table>
-      <div id="nw-empty" class="empty" style="display:none">조건에 맞는 기사가 없습니다</div>
+  <div class="mrow" id="pr-metrics"></div>
+  <div class="card" style="margin-bottom:1.5rem"><div class="ctitle">월별 배포 건수</div>
+    <div class="csub">막대를 누르면 그 달 캘린더로 넘어갑니다</div>
+    <div class="cwrap" style="height:230px"><canvas id="c-pr-month"></canvas></div></div>
+  <div class="card" style="margin-bottom:1.5rem">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+      <div><div class="ctitle" id="pr-cal-title">-</div>
+        <div class="csub" style="margin-bottom:0">제목을 누르면 아래 목록이 그 날짜로 좁혀집니다</div></div>
+      <div class="frow" id="pr-months"></div>
+    </div>
+    <div id="pr-cal" style="margin-top:14px"></div>
+    <div id="pr-noday" style="margin-top:12px"></div>
+  </div>
+  <div class="card"><div class="ctitle">배포 목록</div><div class="csub" id="pr-list-sub">-</div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:12px 0 14px">
+      <input type="search" id="pr-q" placeholder="제목·담당·진료과·의료진 검색" oninput="drawPress()" style="flex:1;min-width:220px">
+    </div>
+    <div style="overflow-x:auto"><table class="fixed" style="min-width:820px">
+      <colgroup><col style="width:104px"><col style="width:min(560px,40%)"><col style="width:92px"><col style="width:116px"><col style="width:120px"><col style="width:130px"><col></colgroup>
+      <thead><tr><th>날짜</th><th>제목</th><th>담당</th><th>진료과</th><th>의료진</th><th>배포범위</th></tr></thead>
+      <tbody id="pr-tbody"></tbody></table>
+      <div id="pr-empty" class="empty" style="display:none">조건에 맞는 보도자료가 없습니다</div>
     </div>
   </div>
 </section>
@@ -389,6 +405,15 @@ function articlesFor(adTitle){
   return out;
 }
 
+/* 광고·협찬의 기사 링크에만 쓰는 1.6MB 추출본입니다.
+   언론 보도 탭이 없어졌으니 광고 탭을 처음 열 때만 받습니다. */
+let NEWS_LOADED=false;
+async function ensureNews(){
+  if(NEWS_LOADED) return;
+  NEWS_LOADED=true;
+  await loadNews();
+  if(NEWS.length && currentTab()==='ad') drawAd();   // 늦게 도착하면 링크만 다시 그립니다
+}
 async function loadNews(){
   try{
     const res=await fetch(NEWS_URL,{cache:'no-store'});
@@ -498,7 +523,7 @@ async function loadFeed(){
   showLoading(!cached);
 
   try{
-    const [feed]=await Promise.all([fetchFeed(5), loadNews()]);
+    const feed=await fetchFeed(5);
     applyFeed(feed);
     writeCache(feed);
     if(cached) redrawCurrentTab(); else initDashboard();
@@ -517,6 +542,7 @@ function applyFeed(feed){
   FEED=feed;
   WORK=feed.work||[];
   AD_ROWS=null;   // 광고 메모 합치기 결과를 다시 계산
+  PRESS=null;     // 보도자료 추려 둔 것도 다시 계산
   NEWS_INDEX=null;
   console.log('업무 '+WORK.length+'건, 참조 '+Object.keys(feed.refs||{}).length+'종');
 }
@@ -531,7 +557,7 @@ const TABS=[
   {id:'ad',       group:'업무 내역', name:'광고·협찬',   icon:'💰', crumb:'연도별 광고 집행 내역',        draw:()=>drawAd()},
   {id:'admedia',  group:'업무 내역', name:'언론사별 집행', icon:'🏷️', crumb:'언론사별 집행 금액과 내역',    draw:()=>drawAdMedia()},
   {id:'help',     group:'업무 내역', name:'도움말자료',  icon:'🗓️', crumb:'연도별 기획 캘린더',           draw:()=>drawHelp()},
-  {id:'news',     group:'언론 실적', name:'언론 보도',   icon:'📰', crumb:'수집된 서울아산병원 기사',     draw:()=>drawNews()},
+  {id:'press',    group:'언론 실적', name:'보도자료 배포', icon:'📰', crumb:'우리가 낸 보도자료 · 캘린더와 목록',  draw:()=>drawPress()},
   // embed:true 는 남의 페이지를 통째로 끼운 탭입니다. PDF 저장 버튼을 가립니다(iframe 은 캡처가 안 됩니다).
   {id:'hnews',    group:'언론 실적', name:'병원 뉴스 수집', icon:'🏥', crumb:'주요 병원 기사를 매일 수집해 비교합니다 · 따로 운영되는 페이지', embed:true, draw:()=>drawEmbed('hnews')},
   {id:'radar',    group:'언론 실적', name:'연구성과 레이더', icon:'🔬', crumb:'PubMed 신규 논문에서 보도자료 후보를 고릅니다 · 따로 운영되는 페이지', embed:true, draw:()=>drawEmbed('radar')},
@@ -814,6 +840,7 @@ function drawAdSortHeads(){
 }
 
 function drawAd(){
+  ensureNews();
   const box=document.getElementById('ad-years');
   if(!box.children.length){
     box.innerHTML=['전체'].concat(adYears()).map(y=>
@@ -1008,78 +1035,112 @@ function renderHelp(){
     `<td style="color:var(--text3)">${esc(r.anniversary||'-')}</td></tr>`).join('');
 }
 
-/* ── ⑥-2 언론 보도 ── */
-function drawNews(){
-  if(!NEWS.length){
-    document.getElementById('news-metrics').innerHTML=
-      '<div class="mc a" style="grid-column:1/-1"><div class="mlabel">언론 보도</div>'+
-      '<div class="mval" style="font-size:1.1rem">추출본을 읽지 못했습니다</div>'+
-      '<div class="msub">scripts/build_news.py 를 돌려 data/articles.json 을 만들어 커밋하세요</div></div>';
-    document.getElementById('nw-count').textContent='-';
-    document.getElementById('nw-tbody').innerHTML='';
-    document.getElementById('nw-empty').style.display='block';
-    return;
-  }
-  const months={}, media={};
-  NEWS.forEach(a=>{
-    const m=(a.d||'').slice(0,7);
-    if(m) months[m]=(months[m]||0)+1;
-    const k=a.m||'미상';
-    media[k]=(media[k]||0)+1;
+/* ── ⑥ 보도자료 배포 ── */
+
+/** 시트 「언론 업무」에서 구분이 '보도자료'인 건. 날짜는 년도+월+게재일로 맞춥니다. */
+let PRESS=null;
+function pressRows(){
+  if(PRESS) return PRESS;
+  PRESS=WORK.filter(r=>r.source==='언론' && r.type==='보도자료').map(r=>{
+    const d=parseInt(String(r.day||'').trim(),10);
+    const m=parseInt(String(r.month||'').trim(),10);
+    return Object.assign({}, r, {_m:(m>=1&&m<=12)?m:0, _d:(d>=1&&d<=31)?d:0});
   });
-  const mk=Object.keys(months).sort();
-  const withProf=NEWS.filter(a=>a.p).length;
-  const latest=NEWS[0]?NEWS[0].d:'-';
+  return PRESS;
+}
+let prYear=null, prMonth=null, prDay=0;
+function pressYears(){ return [...new Set(pressRows().map(r=>String(r.year)))].filter(y=>/^\d{4}$/.test(y)).sort(); }
+function setPrYear(y){ prYear=y; prMonth=null; prDay=0; drawPress(); }
+function setPrMonth(m){ prMonth=m; prDay=0; drawPress(); }
+function setPrDay(d){ prDay=(prDay===d)?0:d; drawPress(); }
 
-  document.getElementById('news-metrics').innerHTML=
-    `<div class="mc b"><div class="mlabel">수집 기사</div><div class="mval">${NEWS.length.toLocaleString()}<span class="munit">건</span></div><div class="msub">최근 ${esc(latest)}</div></div>`+
-    `<div class="mc g"><div class="mlabel">매체</div><div class="mval">${Object.keys(media).length}<span class="munit">곳</span></div><div class="msub">중복 제거 기준</div></div>`+
-    `<div class="mc a"><div class="mlabel">교수명 확인</div><div class="mval">${withProf.toLocaleString()}<span class="munit">건</span></div><div class="msub">전체의 ${Math.round(withProf/NEWS.length*100)}%</div></div>`+
-    `<div class="mc p"><div class="mlabel">월평균</div><div class="mval">${mk.length?Math.round(NEWS.length/mk.length).toLocaleString():0}<span class="munit">건</span></div><div class="msub">${mk.length}개월 기준</div></div>`;
+function drawPress(){
+  const all=pressRows(), ys=pressYears();
+  if(prYear===null){
+    const now=String(new Date().getFullYear());
+    prYear=ys.includes(now)?now:(ys[ys.length-1]||now);
+  }
+  const yr=all.filter(r=>String(r.year)===prYear);
+  if(prMonth===null){
+    // 올해면 이번 달, 지난 해면 자료가 있는 마지막 달.
+    // 앞당겨 적어 둔 다음 달 건이 있어서 '가장 큰 달'로 잡으면 엉뚱한 달이 열립니다.
+    const now=new Date();
+    const ms=yr.map(r=>r._m).filter(Boolean);
+    prMonth = (prYear===String(now.getFullYear())) ? now.getMonth()+1
+            : (ms.length?Math.max.apply(null,ms):1);
+  }
 
-  destroyChart('c-news-month');
-  new Chart(document.getElementById('c-news-month'),{type:'bar',
-    data:{labels:mk,datasets:[{data:mk.map(m=>months[m]),backgroundColor:'#0ea5e9',borderRadius:4,borderWidth:0}]},
-    options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false}},
-      scales:{x:{grid:{display:false},ticks:{color:tx}},y:{grid:{color:gr},ticks:{color:tx},beginAtZero:true}}}});
+  document.getElementById('pr-years').innerHTML=ys.map(y=>
+    `<button class="fbtn${y===prYear?' active':''}" data-y="${esc(y)}" onclick="setPrYear(this.dataset.y)">${esc(y)}</button>`).join('');
 
-  const top=Object.keys(media).sort((a,b)=>media[b]-media[a]).slice(0,15);
-  destroyChart('c-news-media');
-  new Chart(document.getElementById('c-news-media'),{type:'bar',
-    data:{labels:top,datasets:[{data:top.map(m=>media[m]),backgroundColor:'#0369a1',borderRadius:3,borderWidth:0}]},
-    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false}},
-      scales:{x:{grid:{color:gr},ticks:{color:tx},beginAtZero:true},y:{grid:{display:false},ticks:{color:tx,font:{size:11}}}}}});
+  const noDay=yr.filter(r=>!r._d).length;
+  const months=[...new Set(yr.map(r=>r._m).filter(Boolean))].length;
+  document.getElementById('pr-metrics').innerHTML=
+    `<div class="mc b"><div class="mlabel">${esc(prYear)}년 배포</div><div class="mval">${yr.length}<span class="munit">건</span></div><div class="msub">전체 ${all.length}건 중</div></div>`+
+    `<div class="mc g"><div class="mlabel">월평균</div><div class="mval">${months?Math.round(yr.length/months*10)/10:0}<span class="munit">건</span></div><div class="msub">자료가 있는 ${months}개월 기준</div></div>`+
+    `<div class="mc a"><div class="mlabel">가장 많았던 달</div><div class="mval" style="font-size:1.5rem">${topMonth(yr)}</div><div class="msub">같은 해 안에서</div></div>`+
+    `<div class="mc p"><div class="mlabel">날짜 미정</div><div class="mval">${noDay}<span class="munit">건</span></div><div class="msub">게재일 칸이 비어 있음</div></div>`;
 
-  const sel=(id,vals,label)=>{
-    document.getElementById(id).innerHTML=`<option value="">${label}</option>`+
-      vals.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');
-  };
-  sel('nw-media',Object.keys(media).sort((a,b)=>media[b]-media[a]),'매체 전체');
-  sel('nw-month',mk.slice().reverse(),'월 전체');
-  renderNews();
+  const cnt=[]; for(let m=1;m<=12;m++) cnt.push(yr.filter(r=>r._m===m).length);
+  destroyChart('c-pr-month');
+  new Chart(document.getElementById('c-pr-month'),{type:'bar',
+    data:{labels:['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'],
+      datasets:[{data:cnt,backgroundColor:cnt.map((_,i)=>(i+1===prMonth)?'#0ea5e9':'rgba(14,165,233,.3)'),borderRadius:4,borderWidth:0}]},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,
+      onClick:(e,els)=>{ if(els.length) setPrMonth(els[0].index+1); },
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y+'건'}}},
+      scales:{x:{grid:{display:false},ticks:{color:tx}},y:{grid:{color:gr},ticks:{color:tx,precision:0},beginAtZero:true}}}});
+
+  document.getElementById('pr-months').innerHTML=[1,2,3,4,5,6,7,8,9,10,11,12].map(m=>
+    `<button class="fbtn${m===prMonth?' active':''}" onclick="setPrMonth(${m})">${m}월</button>`).join('');
+  document.getElementById('pr-cal-title').textContent=prYear+'년 '+prMonth+'월 · '+yr.filter(r=>r._m===prMonth).length+'건';
+  drawPressCal(yr);
+
+  const q=(document.getElementById('pr-q').value||'').trim().toLowerCase();
+  // 검색어가 있으면 그 해 전체에서 찾습니다. 한 달만 뒤지면 못 찾는 게 더 많습니다.
+  let rows = q ? yr : yr.filter(r=>r._m===prMonth && (!prDay || r._d===prDay));
+  if(q) rows=rows.filter(r=>[r.title,r.staff,r.dept,r.doctor,r.media].join(' ').toLowerCase().includes(q));
+  rows=rows.slice().sort((a,b)=>(b._m-a._m)||(b._d-a._d));
+
+  const scope = q ? `${prYear}년 전체에서 검색` : `${prYear}년 ${prMonth}월` + (prDay?` ${prDay}일`:'');
+  document.getElementById('pr-list-sub').textContent=`${scope} · ${rows.length}건`;
+  document.getElementById('pr-empty').style.display=rows.length?'none':'block';
+  document.getElementById('pr-tbody').innerHTML=rows.map(r=>
+    `<tr><td class="nowrap">${r._d?`${prYear}-${String(r._m).padStart(2,'0')}-${String(r._d).padStart(2,'0')}`:(r._m?`${r._m}월 (일자 미정)`:'미정')}</td>`+
+    `<td style="word-break:keep-all;white-space:pre-line">${esc(r.title)}</td>`+
+    `<td style="white-space:pre-line;word-break:keep-all">${esc(r.staff||'-')}</td>`+
+    `<td style="white-space:pre-line;color:var(--text3)">${esc(r.dept||'-')}</td>`+
+    `<td style="white-space:pre-line;word-break:keep-all">${esc(r.doctor||'-')}</td>`+
+    `<td style="font-size:12px;color:var(--text3)">${esc(r.media||'-')}</td></tr>`).join('');
 }
 
-function renderNews(){
-  if(!NEWS.length) return;
-  const q=(document.getElementById('nw-q').value||'').trim().toLowerCase();
-  const fm=document.getElementById('nw-media').value;
-  const fmo=document.getElementById('nw-month').value;
-  const rows=NEWS.filter(a=>{
-    if(fm && (a.m||'미상')!==fm) return false;
-    if(fmo && (a.d||'').slice(0,7)!==fmo) return false;
-    if(q && [a.t,a.p,a.r,a.m].join(' ').toLowerCase().indexOf(q)<0) return false;
-    return true;
-  });
-  document.getElementById('nw-count').textContent=`${rows.length.toLocaleString()}건`;
-  document.getElementById('nw-empty').style.display=rows.length?'none':'block';
-  document.getElementById('nw-tbody').innerHTML=rows.slice(0,600).map(a=>
-    `<tr><td class="nowrap">${esc(a.d)}</td><td class="nowrap">${esc(a.m||'-')}</td>`+
-    `<td style="word-break:keep-all">`+
-      `<a href="${esc(a.u)}" target="_blank" rel="noopener" style="color:var(--text);text-decoration:none">${esc(a.t)}`+
-      `<span style="margin-left:5px;font-size:11px;color:var(--blue)">🔗</span></a></td>`+
-    `<td style="word-break:keep-all;color:var(--text3)">${esc(a.p||'-')}</td>`+
-    `<td style="word-break:keep-all;color:var(--text3)">${esc(a.r||'-')}</td></tr>`).join('')+
-    (rows.length>600?`<tr><td colspan="5" class="empty">앞 600건만 표시했습니다 (전체 ${rows.length.toLocaleString()}건)</td></tr>`:'');
+function topMonth(rows){
+  const c={}; rows.forEach(r=>{ if(r._m) c[r._m]=(c[r._m]||0)+1; });
+  const k=Object.keys(c).sort((a,b)=>c[b]-c[a])[0];
+  return k?k+'월 '+c[k]+'건':'-';
+}
+
+function drawPressCal(yr){
+  const rows=yr.filter(r=>r._m===prMonth && r._d);
+  const byDay={}; rows.forEach(r=>{ (byDay[r._d]=byDay[r._d]||[]).push(r); });
+  const first=new Date(Number(prYear), prMonth-1, 1).getDay();
+  const last=new Date(Number(prYear), prMonth, 0).getDate();
+  let html='<div class="cal">'+['일','월','화','수','목','금','토'].map(d=>`<div class="hd">${d}</div>`).join('');
+  for(let i=0;i<first;i++) html+='<div class="dc out"></div>';
+  for(let d=1;d<=last;d++){
+    const list=byDay[d]||[];
+    const cls='dc'+(((first+d-1)%7===0)?' sun':'')+((prDay===d)?' sel':'');
+    html+=`<div class="${cls}"><div class="dn">${d}</div>`+
+      list.map(r=>`<button class="ev" title="${esc(r.title)}" onclick="setPrDay(${d})">${esc(r.title)}</button>`).join('')+
+      '</div>';
+  }
+  const tail=(7-((first+last)%7))%7;
+  for(let i=0;i<tail;i++) html+='<div class="dc out"></div>';
+  document.getElementById('pr-cal').innerHTML=html+'</div>';
+
+  const nd=yr.filter(r=>r._m===prMonth && !r._d);
+  document.getElementById('pr-noday').innerHTML = nd.length
+    ? `<div style="font-size:12px;color:var(--text3)">날짜 미정 ${nd.length}건 — ${nd.map(r=>esc(r.title)).join(' · ')}</div>` : '';
 }
 
 /* ── ⑥-2 다른 대시보드를 통째로 끼운 탭 ── */
