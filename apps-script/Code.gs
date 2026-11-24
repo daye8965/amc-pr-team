@@ -19,7 +19,7 @@
  */
 
 /** 고칠 때마다 올리세요. 대시보드 '전체 현황' 맨 아래에 찍혀서, 재배포가 먹었는지 바로 보입니다. */
-const SCRIPT_VERSION = '2026-11-24a';
+const SCRIPT_VERSION = '2026-11-24b';
 
 const SPREADSHEET_ID = '15mRKud-otGhbvY5efenonaZxjlHGKRMhDU9LmoAA2WA';
 
@@ -115,6 +115,7 @@ function buildFeed_() {
 
       if (!rec.title) continue;                       // 빈 줄·소계 줄 제외
       rec.month = /^\d+$/.test(rec.month) ? Number(rec.month) : rec.month;
+      rec._row = i + 1;                               // 시트 행 번호(대시보드에서 날짜를 고칠 때 씁니다)
       work.push(rec);
       count++;
     }
@@ -152,6 +153,83 @@ function buildFeed_() {
   });
 
   return {meta: meta, work: work, refs: refs};
+}
+
+/* ── 대시보드에서 날짜 고치기 ── */
+
+/**
+ * 공개 페이지에서 오는 요청이라 다음을 지킵니다.
+ *   - 비밀번호는 스크립트 속성(EDIT_PW)에만 둡니다. 이 파일에도, 저장소에도 적지 않습니다.
+ *   - 고칠 수 있는 칸은 '언론 업무' 탭의 년도·월·게재일뿐입니다.
+ *   - 저장 전에 그 행의 제목이 브라우저가 알고 있는 제목과 같은지 봅니다.
+ *     시트에서 행이 밀렸으면 엉뚱한 건을 고치게 되므로 중단합니다.
+ *   - 무엇을 바꿨는지 '대시보드 수정 로그' 탭에 남깁니다.
+ * 비밀번호를 아는 사람은 누구나 고칠 수 있습니다. 신원 확인이 아니라 자물쇠입니다.
+ */
+const EDITABLE_SHEET = '언론 업무';
+const LOG_SHEET = '대시보드 수정 로그';
+
+function doPost(e) {
+  var out = {ok: false};
+  try {
+    var body = JSON.parse((e && e.postData && e.postData.contents) || '{}');
+    var pw = PropertiesService.getScriptProperties().getProperty('EDIT_PW');
+    if (!pw) { out.error = '스크립트에 EDIT_PW 가 없습니다'; return jsonOut_(out); }
+    if (String(body.pw || '') !== pw) { out.error = '비밀번호가 다릅니다'; return jsonOut_(out); }
+    if (body.action !== 'setDate') { out.error = '허용되지 않은 요청입니다'; return jsonOut_(out); }
+
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var sheet = sheetByName_(ss, EDITABLE_SHEET);
+    if (!sheet) { out.error = '탭을 찾지 못했습니다'; return jsonOut_(out); }
+
+    var values = sheet.getDataRange().getDisplayValues();
+    var def = null;
+    WORK_TABS.forEach(function (d) { if (d.sheet === EDITABLE_SHEET) def = d; });
+    var headerRow = findHeaderRow_(values, objValues_(def.map));
+    var idx = columnIndex_(values[headerRow]);
+
+    var row = Number(body.row);
+    if (!(row > headerRow + 1 && row <= values.length)) { out.error = '행 번호가 잘못됐습니다'; return jsonOut_(out); }
+
+    var cTitle = idx[norm_(def.map.title)], cYear = idx[norm_(def.map.year)],
+        cMonth = idx[norm_(def.map.month)], cDay = idx[norm_(def.map.day)];
+    if (cTitle === undefined || cYear === undefined || cMonth === undefined || cDay === undefined) {
+      out.error = '열을 찾지 못했습니다'; return jsonOut_(out);
+    }
+
+    var cur = values[row - 1];
+    if (norm_(cur[cTitle]) !== norm_(body.title)) {
+      out.error = '시트의 그 줄이 바뀌었습니다. 새로고침한 뒤 다시 해주세요';
+      return jsonOut_(out);
+    }
+
+    var before = [cur[cYear], cur[cMonth], cur[cDay]].join('-');
+    sheet.getRange(row, cYear + 1).setValue(Number(body.year));
+    sheet.getRange(row, cMonth + 1).setValue(Number(body.month));
+    sheet.getRange(row, cDay + 1).setValue(body.day === '' || body.day === null ? '' : Number(body.day));
+    var after = [body.year, body.month, body.day].join('-');
+
+    logEdit_(ss, row, cur[cTitle], before, after);
+    out.ok = true;
+    out.before = before;
+    out.after = after;
+  } catch (err) {
+    out.error = String(err);
+  }
+  return jsonOut_(out);
+}
+
+function jsonOut_(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+
+function logEdit_(ss, row, title, before, after) {
+  var sh = sheetByName_(ss, LOG_SHEET);
+  if (!sh) {
+    sh = ss.insertSheet(LOG_SHEET);
+    sh.appendRow(['시각', '탭', '행', '제목', '이전 날짜', '바꾼 날짜']);
+  }
+  sh.appendRow([new Date(), EDITABLE_SHEET, row, title, before, after]);
 }
 
 /* ── 헬퍼 ── */

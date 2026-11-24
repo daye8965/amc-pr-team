@@ -312,6 +312,7 @@ footer{text-align:center;padding:1.5rem;font-size:11px;color:var(--text3);border
     <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:12px 0 14px">
       <div class="frow" id="pr-scope" style="align-items:center"></div>
       <input type="search" id="pr-q" placeholder="제목·담당·진료과·의료진 검색" oninput="drawPress()" style="flex:1;min-width:220px">
+      <button class="fbtn" id="pr-edit-btn" onclick="togglePrEdit()">날짜 수정</button>
     </div>
     <div style="overflow-x:auto"><table class="fixed" style="min-width:820px">
       <colgroup><col style="width:150px"><col style="width:min(560px,38%)"><col style="width:92px"><col style="width:116px"><col style="width:120px"><col style="width:130px"><col></colgroup>
@@ -526,6 +527,13 @@ async function loadFeed(){
   }
 }
 
+/** 시트를 고친 뒤 다시 받아옵니다. 캐시도 새로 씁니다. */
+async function refetchFeed(){
+  const feed=await fetchFeed(3);
+  applyFeed(feed);
+  writeCache(feed);
+  redrawCurrentTab();
+}
 function applyFeed(feed){
   FEED=feed;
   WORK=feed.work||[];
@@ -1102,6 +1110,9 @@ function drawPress(){
   drawPressCal(yr);
 
   const q=(document.getElementById('pr-q').value||'').trim().toLowerCase();
+  const eb=document.getElementById('pr-edit-btn');
+  eb.classList.toggle('active',prEdit);
+  eb.textContent=prEdit?'수정 끝내기':'날짜 수정';
   const scopes=[['month','해당 월'],['year',`${prYear}년 전체`],['all','모든 연도']];
   document.getElementById('pr-scope').innerHTML=
     `<span style="font-size:11px;color:var(--text3);margin-right:2px">범위</span>`+
@@ -1127,13 +1138,70 @@ function drawPress(){
     scopeLabel + (q?` · "${q}" 검색`:'') + ` · ${rows.length}건`;
   document.getElementById('pr-empty').style.display=rows.length?'none':'block';
   document.getElementById('pr-tbody').innerHTML=rows.slice(0,400).map(r=>
-    `<tr><td class="nowrap">${r._d?`${r.year}-${String(r._m).padStart(2,'0')}-${String(r._d).padStart(2,'0')}`:(r._m?`${r.year}년 ${r._m}월 (일자 미정)`:r.year+'년')}</td>`+
+    `<tr>`+prDateCell(r)+
     `<td style="word-break:keep-all;white-space:pre-line">${esc(r.title)}</td>`+
     `<td style="white-space:pre-line;word-break:keep-all">${esc(r.staff||'-')}</td>`+
     `<td style="white-space:pre-line;color:var(--text3)">${esc(r.dept||'-')}</td>`+
     `<td style="white-space:pre-line;word-break:keep-all">${esc(r.doctor||'-')}</td>`+
     `<td style="font-size:12px;color:var(--text3)">${esc(r.media||'-')}</td></tr>`).join('')
     +(rows.length>400?`<tr><td colspan="6" class="empty">앞 400건만 표시했습니다 (전체 ${rows.length}건)</td></tr>`:'');
+}
+
+/* 날짜 수정. 공개 페이지라 비밀번호는 보내기만 하고, 맞는지는 Apps Script 가 봅니다.
+   입력한 비번은 sessionStorage 에만 둡니다(탭을 닫으면 사라집니다). */
+let prEdit=false, prEditRow=null;
+function prPw(ask){
+  let pw=sessionStorage.getItem('prPw');
+  if(!pw && ask){ pw=window.prompt('수정 비밀번호를 입력하세요'); if(pw) sessionStorage.setItem('prPw',pw); }
+  return pw||null;
+}
+function togglePrEdit(){
+  if(!prEdit && !prPw(true)) return;
+  prEdit=!prEdit; prEditRow=null; drawPress();
+}
+function startPrEdit(row){ prEditRow=Number(row); drawPress(); }
+function cancelPrEdit(){ prEditRow=null; drawPress(); }
+
+async function savePrDate(row,title){
+  const v=(document.getElementById('pr-date-input').value||'').trim();
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(v)){ alert('날짜를 골라주세요.'); return; }
+  const pw=prPw(true); if(!pw) return;
+  const [y,m,d]=v.split('-').map(Number);
+  const btn=document.getElementById('pr-save-btn');
+  btn.disabled=true; btn.textContent='저장 중…';
+  try{
+    // text/plain 으로 보내야 사전 요청(preflight) 없이 Apps Script 에 닿습니다
+    const res=await fetch(FEED_URL,{method:'POST',redirect:'follow',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({action:'setDate',pw:pw,row:Number(row),title:title,year:y,month:m,day:d})});
+    const j=await res.json();
+    if(!j.ok) throw new Error(j.error||'저장하지 못했습니다');
+    prEditRow=null;
+    await refetchFeed();
+  }catch(e){
+    const msg=String(e.message||e);
+    if(msg.indexOf('비밀번호')>=0) sessionStorage.removeItem('prPw');
+    alert('저장하지 못했습니다.\n'+msg);
+    btn.disabled=false; btn.textContent='저장';
+  }
+}
+
+/** 목록의 날짜 칸. 수정 모드일 때만 눌러서 고칠 수 있습니다. */
+function prDateCell(r){
+  const label = r._d ? `${r.year}-${String(r._m).padStart(2,'0')}-${String(r._d).padStart(2,'0')}`
+              : (r._m ? `${r.year}년 ${r._m}월 (일자 미정)` : r.year+'년');
+  if(!prEdit) return `<td class="nowrap">${label}</td>`;
+  if(!r._row) return `<td class="nowrap" style="color:var(--text3)" title="스크립트를 재배포해야 고칠 수 있습니다">${label}</td>`;
+  if(prEditRow===r._row){
+    const val = r._d ? `${r.year}-${String(r._m).padStart(2,'0')}-${String(r._d).padStart(2,'0')}` : '';
+    return `<td><input type="date" id="pr-date-input" value="${val}" style="width:142px;padding:4px 6px;font-size:12px">`+
+      `<div style="display:flex;gap:5px;margin-top:5px">`+
+      `<button class="fbtn" id="pr-save-btn" data-row="${r._row}" data-title="${esc(r.title)}" `+
+      `onclick="savePrDate(this.dataset.row,this.dataset.title)" style="padding:3px 10px;font-size:11px">저장</button>`+
+      `<button class="fbtn" onclick="cancelPrEdit()" style="padding:3px 10px;font-size:11px">취소</button></div></td>`;
+  }
+  return `<td class="nowrap"><button class="mlink" data-row="${r._row}" onclick="startPrEdit(this.dataset.row)" `+
+    `style="border:none;background:none;padding:0;font:inherit;color:var(--accent);cursor:pointer">${label}</button></td>`;
 }
 
 function topMonth(rows){
