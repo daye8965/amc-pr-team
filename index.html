@@ -146,6 +146,7 @@ footer{text-align:center;padding:1.5rem;font-size:11px;color:var(--text3);border
     <a class="sheetbtn" href="https://docs.google.com/spreadsheets/d/15mRKud-otGhbvY5efenonaZxjlHGKRMhDU9LmoAA2WA/edit"
        target="_blank" rel="noopener">구글 시트 열기 ↗</a>
     <span style="color:#b0a79c">수치는 여기가 아니라 시트에서 고칩니다<br>고친 뒤 새로고침하면 반영됩니다</span>
+    <div id="feed-info" style="margin-top:8px;color:#7e766d">-</div>
   </div>
 </aside>
 
@@ -194,30 +195,6 @@ footer{text-align:center;padding:1.5rem;font-size:11px;color:var(--text3);border
 <section class="sec" id="sec-unit"></section>
 
 
-<!-- ③ 업무 목록 -->
-<section class="sec" id="sec-list">
-  <div class="card" style="margin-bottom:1.5rem">
-    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
-      <input type="search" id="q" placeholder="제목·담당·진료과 검색" style="flex:1;min-width:220px" oninput="renderList()">
-      <select id="f-source" onchange="renderList()"><option value="">구분 전체</option></select>
-      <select id="f-year" onchange="renderList()"><option value="">연도 전체</option></select>
-      <select id="f-staff" onchange="renderList()"><option value="">담당 전체</option></select>
-    </div>
-    <div style="margin-top:10px;font-size:12px;color:var(--text3)" id="list-count">-</div>
-  </div>
-  <div class="card">
-    <div style="overflow-x:auto"><table class="fixed" style="min-width:820px">
-      <!-- 마지막 빈 칸이 남는 폭을 흡수합니다. 안 두면 남는 폭이 칼럼 사이로 퍼지거나
-           진료과·매체가 화면 오른쪽 끝에 혼자 떨어져 붙습니다. -->
-      <colgroup><col style="width:80px"><col style="width:62px"><col style="width:52px"><col style="width:92px"><col style="width:min(600px,40%)"><col style="width:116px"><col style="width:150px"><col></colgroup>
-      <thead><tr><th class="sort" id="ls-h-source" onclick="setListSort('source')">구분</th><th class="sort" id="ls-h-year" onclick="setListSort('year')">연도</th><th class="sort" id="ls-h-month" onclick="setListSort('month')">월</th><th class="sort" id="ls-h-staff" onclick="setListSort('staff')">담당</th><th class="sort" id="ls-h-title" onclick="setListSort('title')">제목 / 내용</th><th class="sort" id="ls-h-dept" onclick="setListSort('dept')">진료과</th><th class="sort" id="ls-h-media" onclick="setListSort('media')">매체 · 비고</th></tr></thead>
-      <tbody id="list-tbody"></tbody></table>
-      <div id="list-empty" class="empty" style="display:none">조건에 맞는 업무가 없습니다</div>
-    </div>
-  </div>
-  <div class="card"><div class="ctitle">연동된 시트 탭</div><div class="csub" id="ov-tabs-sub">탭별로 몇 건씩 들어왔는지</div>
-    <div style="overflow-x:auto"><table><thead><tr><th>탭</th><th>종류</th><th style="text-align:right">건수</th><th>비고</th></tr></thead><tbody id="ov-tabs"></tbody></table></div></div>
-</section>
 
 
 <!-- ⑤ 광고·협찬 -->
@@ -414,12 +391,12 @@ async function loadNews(){
 
 const CACHE_KEY = 'amc-pr-team:feed:v1';
 const CACHE_MAX_AGE = 7*24*60*60*1000;
-const SOURCES = ['언론','광고','도움말'];
-const SRC_COLOR = {'언론':'#b5603f','광고':'#c08a3e','도움말':'#7c8a6f'};
-const PALETTE = ['#b5603f','#7c8a6f','#c08a3e','#8a6a78','#a39c92','#8c4f33','#5f6b55','#9c6f2e','#6e5460','#c6b9a8'];
 const tx='#8a8178', gr='rgba(42,39,36,0.07)';
 
-/* ── 담당자 이름 ── */
+/* ── 담당자 이름 ──
+   지금은 쓰는 화면이 없습니다(업무 목록·업무량 분석을 뺐습니다). 담당 칸은 공동 담당이 줄바꿈·공백으로
+   여러 명 들어있고 '.문지애' 같은 오타와 '유닛공통'·'다같이' 같은 팀 표기가 섞여 있어, 사람 단위로 세는
+   화면을 다시 만든다면 문자열을 그대로 세지 말고 이 함수를 쓰세요. */
 const TEAM_LABEL='유닛 공통';
 const TEAM_NAMES=['유닛공통','유닛 공통','다같이','전체','공통','홍보팀'];
 function staffNames(raw){
@@ -534,6 +511,7 @@ function applyFeed(feed){
   WORK=feed.work||[];
   AD_ROWS=null;   // 광고 메모 합치기 결과를 다시 계산
   PRESS=null;     // 보도자료 추려 둔 것도 다시 계산
+  drawFeedTabs();
   NEWS_INDEX=null;
   console.log('업무 '+WORK.length+'건, 참조 '+Object.keys(feed.refs||{}).length+'종');
 }
@@ -556,8 +534,7 @@ const TABS=[
   {id:'ref-tv',   group:'자료',      name:'명의 출연진', icon:'📺', crumb:'방송 출연 기록',               sheet:'명의 출연진', draw:()=>drawRefTable('ref-tv')},
   {id:'ref-note', group:'자료',      name:'의료진 특이사항', icon:'📝', crumb:'홍보 관련 참고 메모',       sheet:'의료진 홍보 관련 특이사항', draw:()=>drawRefTable('ref-note')},
   {id:'help',     group:'자료',      name:'도움말자료',  icon:'🗓️', crumb:'연도별 기획 캘린더',           draw:()=>drawHelp()},
-  {id:'unit',     group:'현황',      name:'언론유닛 실적', icon:'📊', crumb:'언론유닛 홍보 실적 대시보드 · 따로 운영되는 페이지', embed:true, draw:()=>drawEmbed('unit')},
-  {id:'list',     group:'현황',      name:'업무 목록',   icon:'📋', crumb:'전체 업무 검색 · 필터',        draw:()=>drawList()}
+  {id:'unit',     group:'현황',      name:'언론유닛 실적', icon:'📊', crumb:'언론유닛 홍보 실적 대시보드 · 따로 운영되는 페이지', embed:true, draw:()=>drawEmbed('unit')}
 ];
 const drawn={};
 
@@ -607,87 +584,14 @@ function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;',
 
 /* ── ① 전체 현황 ── */
 
-/* ── ③ 업무 목록 ── */
-/** 연동된 시트 탭. 전체 현황을 언론유닛 대시보드로 바꾸면서 업무 목록 아래로 옮겼습니다. */
+/** 피드 상태 한 줄. 업무 목록 탭을 없애면서 사이드바 발치로 옮겼습니다.
+    스크립트 버전이 여기 찍혀야 Apps Script 재배포가 먹었는지 확인할 수 있습니다. */
 function drawFeedTabs(){
-  // 스크립트 버전을 같이 찍습니다. Apps Script 를 고치고 재배포했는지 여기서 바로 보입니다.
-  const sv=FEED.meta&&FEED.meta.script;
-  document.getElementById('ov-tabs-sub').textContent=
-    '탭별로 몇 건씩 들어왔는지' + (sv?' · 스크립트 '+sv:' · 스크립트 버전 표기 전');
-  document.getElementById('ov-tabs').innerHTML=(FEED.meta&&FEED.meta.tabs||[]).map(t=>
-    `<tr><td class="nowrap">${esc(t.name)}</td><td class="nowrap">${t.kind==='work'?'업무 기록':'참조 자료'}</td>`+
-    `<td class="nowrap" style="text-align:right;font-weight:600">${t.rows.toLocaleString()}</td>`+
-    `<td style="color:var(--text3)">${t.error?esc(t.error):''}</td></tr>`).join('');
-}
-
-function drawList(){
-  drawFeedTabs();
-  const fill=(id,vals,label)=>{
-    const sel=document.getElementById(id);
-    sel.innerHTML=`<option value="">${label}</option>`+vals.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');
-  };
-  fill('f-source',SOURCES.filter(s=>WORK.some(r=>r.source===s)),'구분 전체');
-  fill('f-year',years().slice().reverse(),'연도 전체');
-  const names=new Set();
-  WORK.forEach(r=>workStaff(r).forEach(n=>names.add(n)));
-  fill('f-staff',[...names].sort(),'담당 전체');
-  renderList();
-}
-let listSort={key:'year',dir:'desc'};
-const LIST_COLS=[['source','구분'],['year','연도'],['month','월'],['staff','담당'],
-                 ['title','제목 / 내용'],['dept','진료과'],['media','매체 · 비고']];
-function setListSort(k){ listSort=nextSort(listSort,k,k==='year'||k==='month'); renderList(); }
-function listMon(v){ const n=parseInt(v,10); return isNaN(n)?0:n; }
-function listMedia(r){ return r.media||r.note||r.anniversary||''; }
-function listSortKey(r){
-  switch(listSort.key){
-    case 'year':  return Number(r.year)*100 + listMon(r.month);
-    case 'month': return listMon(r.month);
-    case 'staff': return String(r.staff||'');
-    case 'media': return listMedia(r);
-    default:      return String(r[listSort.key]||'');
-  }
-}
-function renderList(){
-  const q=(document.getElementById('q').value||'').trim().toLowerCase();
-  const fs=document.getElementById('f-source').value;
-  const fy=document.getElementById('f-year').value;
-  const fst=document.getElementById('f-staff').value;
-  let rows=WORK.filter(r=>{
-    if(fs && r.source!==fs) return false;
-    if(fy && String(r.year)!==fy) return false;
-    if(fst && !workStaff(r).includes(fst)) return false;
-    if(q){
-      const hay=[r.title,r.staff,r.planner,r.editor,r.dept,r.doctor,r.media].join(' ').toLowerCase();
-      if(hay.indexOf(q)<0) return false;
-    }
-    return true;
-  });
-  LIST_COLS.forEach(([k,label])=>{
-    const th=document.getElementById('ls-h-'+k), on=listSort.key===k;
-    th.innerHTML=sortHead(label,on,listSort.dir);
-    th.classList.toggle('on',on);
-  });
-  const dir=listSort.dir==='asc'?1:-1;
-  rows.sort((a,b)=>{
-    const x=listSortKey(a), y=listSortKey(b);
-    const c = typeof x==='number' ? x-y : x.localeCompare(y,'ko');
-    if(c) return c*dir;
-    return (Number(b.year)*100+listMon(b.month))-(Number(a.year)*100+listMon(a.month));  // 동률이면 최신순
-  });
-  // 월이 '미정'·'장기' 인 건은 어느 방향으로 정렬하든 맨 뒤로 보냅니다
-  if(listSort.key==='month') rows=[...rows.filter(r=>listMon(r.month)), ...rows.filter(r=>!listMon(r.month))];
-  document.getElementById('list-count').textContent=`${rows.length.toLocaleString()}건`;
-  document.getElementById('list-empty').style.display=rows.length?'none':'block';
-  document.getElementById('list-tbody').innerHTML=rows.slice(0,800).map(r=>{
-    const who=r.staff||'';
-    return `<tr><td class="nowrap"><span class="pill src-${r.source}">${r.source}</span></td>`+
-      `<td class="nowrap">${esc(r.year)}</td><td class="nowrap">${esc(r.month)}${/^\d+$/.test(String(r.month))?'월':''}</td>`+
-      `<td style="white-space:pre-line;word-break:keep-all">${esc(who||'-')}</td>`+
-      `<td style="word-break:keep-all">${esc(r.title)}</td>`+
-      `<td style="white-space:pre-line;color:var(--text3)">${esc(r.dept||'-')}</td>`+
-      `<td style="font-size:12px">${esc(r.media||r.note||r.anniversary||'-')}</td></tr>`;
-  }).join('')+(rows.length>800?`<tr><td colspan="7" class="empty">앞 800건만 표시했습니다. 검색이나 필터로 범위를 좁혀주세요 (전체 ${rows.length.toLocaleString()}건)</td></tr>`:'');
+  const el=document.getElementById('feed-info');
+  if(!el) return;
+  const tabs=(FEED.meta&&FEED.meta.tabs)||[];
+  const bad=tabs.filter(t=>t.error).length;
+  el.textContent=`시트 ${tabs.length}탭${bad?` · ${bad}탭 오류`:''} · 스크립트 ${(FEED.meta&&FEED.meta.script)||'버전 표기 전'}`;
 }
 
 /* ── ⑤ 광고·협찬 ── */
