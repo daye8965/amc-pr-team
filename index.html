@@ -87,6 +87,9 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',-apple-sy
 .cal .dc.sel{background:#f8f0ea;box-shadow:inset 0 0 0 2px var(--accent)}
 .cal .dn{font-size:11px;color:var(--text3);margin-bottom:4px}
 .cal .dc.sun .dn{color:#b0503c}
+.cal .dc.hol{background:#fdf6f3}
+.cal .dc.hol .dn{color:#b0503c}
+.cal .hol-name{font-size:10px;color:#b0503c;margin:-2px 0 4px}
 .cal .ev{display:block;width:100%;text-align:left;font-family:inherit;font-size:11px;line-height:1.35;background:#f4e7e1;color:#7d3f27;border:0;border-radius:4px;padding:3px 5px;margin-bottom:3px;cursor:pointer}
 .cal .ev:hover{background:#ecd8cf}
 .am-open{background:var(--surface2)}
@@ -1211,6 +1214,10 @@ function topMonth(rows){
   return k?k+'월 '+c[k]+'건':'-';
 }
 
+function holidayOn(y,m,d){
+  const h=(FEED.meta&&FEED.meta.holidays)||{};
+  return h[`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`]||null;
+}
 function drawPressCal(yr){
   const rows=yr.filter(r=>r._m===prMonth && r._d);
   const byDay={}; rows.forEach(r=>{ (byDay[r._d]=byDay[r._d]||[]).push(r); });
@@ -1220,8 +1227,10 @@ function drawPressCal(yr){
   for(let i=0;i<first;i++) html+='<div class="dc out"></div>';
   for(let d=1;d<=last;d++){
     const list=byDay[d]||[];
-    const cls='dc'+(((first+d-1)%7===0)?' sun':'')+((prDay===d)?' sel':'');
+    const hol=holidayOn(prYear,prMonth,d);
+    const cls='dc'+(((first+d-1)%7===0)?' sun':'')+(hol?' hol':'')+((prDay===d)?' sel':'');
     html+=`<div class="${cls}"><div class="dn">${d}</div>`+
+      (hol?`<div class="hol-name">${esc(hol)}</div>`:'')+
       list.map(r=>`<button class="ev" title="${esc(r.title)}" onclick="setPrDay(${d})">${esc(r.title)}</button>`).join('')+
       '</div>';
   }
@@ -1229,9 +1238,16 @@ function drawPressCal(yr){
   for(let i=0;i<tail;i++) html+='<div class="dc out"></div>';
   document.getElementById('pr-cal').innerHTML=html+'</div>';
 
+  // 그 해 요일별 배포 수. 추천이 아니라 우리가 실제로 언제 냈는지입니다.
+  const DOW=['일','월','화','수','목','금','토'], byDow=[0,0,0,0,0,0,0];
+  yr.forEach(r=>{ if(r._m&&r._d) byDow[new Date(Number(prYear),r._m-1,r._d).getDay()]++; });
+  const dowLine=`<div style="font-size:12px;color:var(--text3);margin-bottom:6px">`+
+    `${prYear}년 요일별 배포 — `+[1,2,3,4,5].map(i=>`${DOW[i]} ${byDow[i]}`).join(' · ')+
+    ` · 주말 ${byDow[0]+byDow[6]}</div>`;
+
   const nd=yr.filter(r=>r._m===prMonth && !r._d);
-  document.getElementById('pr-noday').innerHTML = nd.length
-    ? `<div style="font-size:12px;color:var(--text3)">날짜 미정 ${nd.length}건 — ${nd.map(r=>esc(r.title)).join(' · ')}</div>` : '';
+  document.getElementById('pr-noday').innerHTML = dowLine + (nd.length
+    ? `<div style="font-size:12px;color:var(--text3)">날짜 미정 ${nd.length}건 — ${nd.map(r=>esc(r.title)).join(' · ')}</div>` : '');
 }
 
 /* ── ⑥-2 다른 대시보드를 통째로 끼운 탭 ── */

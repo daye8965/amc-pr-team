@@ -19,7 +19,7 @@
  */
 
 /** 고칠 때마다 올리세요. 대시보드 '전체 현황' 맨 아래에 찍혀서, 재배포가 먹었는지 바로 보입니다. */
-const SCRIPT_VERSION = '2026-11-24b';
+const SCRIPT_VERSION = '2026-11-24c';
 
 const SPREADSHEET_ID = '15mRKud-otGhbvY5efenonaZxjlHGKRMhDU9LmoAA2WA';
 
@@ -152,7 +152,57 @@ function buildFeed_() {
     meta.tabs.push({name: name, kind: 'ref', rows: rows.length});
   });
 
+  meta.holidays = holidays_();
   return {meta: meta, work: work, refs: refs};
+}
+
+/* ── 공휴일 ── */
+
+/**
+ * 구글이 공개해 둔 '대한민국의 휴일' 달력을 그대로 받아옵니다.
+ * 네이버는 공개 API 가 없어 긁어오면 깨지고, 공공데이터포털은 인증키가 필요합니다.
+ * 이 ICS 는 키 없이 열리고 음력 명절·대체공휴일이 해마다 알아서 맞습니다.
+ * 6시간 캐시하므로 피드가 느려지지 않고, 못 받아오면 공휴일만 비고 나머지는 그대로 나갑니다.
+ */
+const HOLIDAY_ICS = 'https://calendar.google.com/calendar/ical/ko.south_korea%23holiday%40group.v.calendar.google.com/public/basic.ics';
+
+function holidays_() {
+  const cache = CacheService.getScriptCache();
+  const hit = cache.get('holidays');
+  if (hit) { try { return JSON.parse(hit); } catch (e) {} }
+
+  const out = {};
+  try {
+    const text = UrlFetchApp.fetch(HOLIDAY_ICS, {muteHttpExceptions: true}).getContentText();
+    // ICS 는 긴 줄을 다음 줄 앞 공백으로 이어 붙입니다. 먼저 펴야 제목이 잘리지 않습니다.
+    const lines = text.replace(/\r\n[ \t]/g, '').split(/\r?\n/);
+    let start = null, end = null, name = null, kind = null;
+    lines.forEach(function (ln) {
+      if (ln.indexOf('BEGIN:VEVENT') === 0) { start = end = name = kind = null; return; }
+      if (ln.indexOf('DTSTART') === 0) { start = (ln.split(':')[1] || '').trim(); return; }
+      if (ln.indexOf('DTEND') === 0)   { end   = (ln.split(':')[1] || '').trim(); return; }
+      if (ln.indexOf('SUMMARY:') === 0) { name = ln.slice(8).trim(); return; }
+      // 이 달력에는 쉬는 날(DESCRIPTION 이 '공휴일')과 그냥 기념일(식목일·어버이날 등)이 같이 들어 있습니다
+      if (ln.indexOf('DESCRIPTION:') === 0) { kind = ln.slice(12).trim(); return; }
+      if (ln.indexOf('END:VEVENT') === 0 && start && name && kind && kind.indexOf('공휴일') === 0) {
+        const y = Number(start.slice(0, 4));
+        if (y >= 2018 && y <= 2032) {
+          // 연휴는 DTEND 가 '끝난 다음 날'이라 하루 빼고 채웁니다
+          const from = new Date(y, Number(start.slice(4, 6)) - 1, Number(start.slice(6, 8)));
+          const last = end
+            ? new Date(Number(end.slice(0, 4)), Number(end.slice(4, 6)) - 1, Number(end.slice(6, 8)) - 1)
+            : from;
+          for (var d = new Date(from); d <= last; d.setDate(d.getDate() + 1)) {
+            out[Utilities.formatDate(d, 'Asia/Seoul', 'yyyy-MM-dd')] = name;
+          }
+        }
+      }
+    });
+    cache.put('holidays', JSON.stringify(out), 21600);
+  } catch (err) {
+    // 공휴일을 못 받아도 나머지는 그대로 내보냅니다
+  }
+  return out;
 }
 
 /* ── 대시보드에서 날짜 고치기 ── */
@@ -313,4 +363,5 @@ function testFeed() {
     Logger.log('참조 [%s] 열: %s', k, JSON.stringify(feed.refs[k].columns));
   });
   Logger.log('업무 첫 행: %s', JSON.stringify(feed.work[0]));
+  Logger.log('공휴일 %s일 (못 받아오면 0)', Object.keys(feed.meta.holidays || {}).length);
 }
