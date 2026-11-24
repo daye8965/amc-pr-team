@@ -18,7 +18,7 @@
 단일 파일 정적 페이지입니다. `index.html` 하나가 전부이고 빌드 과정이 없습니다.
 
 - 라이브러리: Chart.js, html2canvas, jsPDF (CDN)
-- 탭: `press`(보도자료 배포) / `ad`(광고·협찬) / `admedia`(언론사별 집행) / `help`(도움말자료) / `hnews`·`radar`(끼워 넣은 대시보드) / `ref-doc`·`ref-cand`·`ref-tv`·`ref-note`(참조 리스트) / `overview`(전체 현황) / `list`(업무 목록)
+- 탭: `press`(보도자료 배포) / `ad`(광고·협찬) / `admedia`(언론사별 집행) / `hnews`·`radar`(끼워 넣은 대시보드) / `ref-doc`·`ref-cand`·`ref-tv`·`ref-note`(참조 리스트) / `help`(도움말자료) / `overview`(전체 현황) / `list`(업무 목록)
 - **`TABS` 의 순서가 곧 사이드바 순서이고, 맨 위 탭이 첫 화면입니다.** 순서를 바꾸면 `<section class="sec active">` 도 같이 옮기세요.
 - 업무량 분석 탭은 2026-11-24에 뺐습니다. 담당자 집계 자체는 `workStaff()` 로 업무 목록 필터와 전체 현황에 남아 있습니다.
 - 탭을 추가하면 `TABS` 배열과 `<section id="sec-*">` 두 군데만 맞추면 됩니다(nav 버튼은 `TABS`에서 자동 생성).
