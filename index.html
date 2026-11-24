@@ -1335,13 +1335,17 @@ function drawRefTable(id){
 
   // 긴 글이 들어가는 칸은 남는 폭을 나눠 갖고, 나머지는 실제 들어있는 글자 수로 폭을 잡습니다.
   // 머리글은 접히므로('차세대 (75년생 이하)') 폭을 머리글 길이에 맞출 필요는 없습니다.
-  const wide=t.columns.map(c=>/내용|분야|성과|비고|주제/.test(c));
-  const width=t.columns.map((c,i)=>{
+  const maxLen=t.columns.map((c,i)=>{
     let m=4;
     t.rows.forEach(r=>String(r[i]||'').split('\n').forEach(ln=>{ if(ln.length>m) m=ln.length; }));
-    return Math.max(84, Math.min(150, m*12+22));
+    return m;
   });
-  const cols=t.columns.map((c,i)=>wide[i]?'<col>':`<col style="width:${width[i]}px">`).join('');
+  // 이름이 '내용'이어도 실제로 짧으면(명의 출연진의 '혈액암') 넓게 둘 이유가 없습니다
+  const wide=t.columns.map((c,i)=>/내용|분야|성과|비고|주제/.test(c) && maxLen[i]>=24);
+  const width=maxLen.map(m=>Math.max(84, Math.min(150, m*12+22)));
+  // 넓은 칸이 하나도 없으면 남는 폭이 칼럼 사이로 퍼집니다. 맨 끝 빈 칸이 받아가게 둡니다.
+  const cols=t.columns.map((c,i)=>wide[i]?'<col>':`<col style="width:${width[i]}px">`).join('')
+    + (wide.some(Boolean)?'':'<col>');
   const head=t.columns.map((c,i)=>
     `<th class="sort" onclick="setRefSort('${id}',${i})">${sortHead(c.replace(/\n/g,' '),refSort[id]&&refSort[id].key===i,(refSort[id]||{}).dir)}</th>`).join('');
   sec.innerHTML=
