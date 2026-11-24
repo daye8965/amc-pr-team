@@ -328,7 +328,7 @@ footer{text-align:center;padding:1.5rem;font-size:11px;color:var(--text3);border
     </div>
     <div style="overflow-x:auto"><table class="fixed" style="min-width:820px">
       <colgroup><col style="width:150px"><col style="width:min(560px,38%)"><col style="width:92px"><col style="width:116px"><col style="width:120px"><col style="width:130px"><col></colgroup>
-      <thead><tr><th>날짜</th><th>제목</th><th>담당</th><th>진료과</th><th>의료진</th><th>배포범위</th></tr></thead>
+      <thead><tr><th class="sort" id="pr-h-date" onclick="setPrSort('date')">날짜</th><th class="sort" id="pr-h-title" onclick="setPrSort('title')">제목</th><th class="sort" id="pr-h-staff" onclick="setPrSort('staff')">담당</th><th class="sort" id="pr-h-dept" onclick="setPrSort('dept')">진료과</th><th class="sort" id="pr-h-doctor" onclick="setPrSort('doctor')">의료진</th><th class="sort" id="pr-h-media" onclick="setPrSort('media')">배포범위</th></tr></thead>
       <tbody id="pr-tbody"></tbody></table>
       <div id="pr-empty" class="empty" style="display:none">조건에 맞는 보도자료가 없습니다</div>
     </div>
@@ -835,7 +835,9 @@ function drawAdSortHeads(){
   [['year','연도'],['media','언론사'],['kind','품의 구분'],['amount','금액(천원)'],['status','진행']].forEach(([k,label])=>{
     const th=document.getElementById('ad-h-'+k);
     const on=adSort.key===k;
-    th.textContent=label+(on?(adSort.dir==='asc'?' ▴':' ▾'):'');
+    th.innerHTML=esc(label)+(on
+      ? ` <span>${adSort.dir==='asc'?'▴':'▾'}</span>`
+      : ` <span style="opacity:.32">⇅</span>`);
     th.classList.toggle('on',on);
   });
 }
@@ -1052,6 +1054,26 @@ function pressRows(){
 let prYear=null, prMonth=null, prDay=0;
 /** 목록이 보여줄 범위. 캘린더와 따로 움직입니다. */
 let prScope='month';   // month | year | all
+let prSort={key:'date',dir:'desc'};
+const PR_COLS=[['date','날짜'],['title','제목'],['staff','담당'],['dept','진료과'],['doctor','의료진'],['media','배포범위']];
+function setPrSort(k){
+  prSort = prSort.key===k ? {key:k, dir:prSort.dir==='asc'?'desc':'asc'} : {key:k, dir:k==='date'?'desc':'asc'};
+  drawPress();
+}
+function prSortKey(r){
+  if(prSort.key==='date') return Number(r.year)*10000 + r._m*100 + r._d;
+  return String(r[prSort.key]||'');
+}
+/** 누를 수 있는 칼럼이라는 걸 쉬고 있을 때도 보이게 ⇅ 를 흐리게 달아 둡니다. */
+function drawPrHeads(){
+  PR_COLS.forEach(([k,label])=>{
+    const th=document.getElementById('pr-h-'+k), on=prSort.key===k;
+    th.innerHTML=esc(label)+(on
+      ? ` <span>${prSort.dir==='asc'?'▴':'▾'}</span>`
+      : ` <span style="opacity:.32">⇅</span>`);
+    th.classList.toggle('on',on);
+  });
+}
 function setPrScope(v){ prScope=v; if(v!=='month') prDay=0; drawPress(); }
 function pressYears(){ return [...new Set(pressRows().map(r=>String(r.year)))].filter(y=>/^\d{4}$/.test(y)).sort(); }
 function setPrYear(y){ prYear=y; prMonth=null; prDay=0; drawPress(); }
@@ -1101,7 +1123,7 @@ function drawPress(){
   drawPressCal(yr);
 
   const q=(document.getElementById('pr-q').value||'').trim().toLowerCase();
-  const scopes=[['month',`${prMonth}월`],['year',`${prYear}년 전체`],['all','모든 연도']];
+  const scopes=[['month','해당 월'],['year',`${prYear}년 전체`],['all','모든 연도']];
   document.getElementById('pr-scope').innerHTML=
     `<span style="font-size:11px;color:var(--text3);margin-right:2px">범위</span>`+
     scopes.map(([v,label])=>`<button class="fbtn${v===prScope?' active':''}" onclick="setPrScope('${v}')">${label}</button>`).join('');
@@ -1110,7 +1132,14 @@ function drawPress(){
            : prScope==='year' ? yr
            : yr.filter(r=>r._m===prMonth && (!prDay || r._d===prDay));
   if(q) rows=rows.filter(r=>[r.title,r.staff,r.dept,r.doctor,r.media].join(' ').toLowerCase().includes(q));
-  rows=rows.slice().sort((a,b)=>(Number(b.year)-Number(a.year))||(b._m-a._m)||(b._d-a._d));
+  drawPrHeads();
+  const dir=prSort.dir==='asc'?1:-1;
+  rows=rows.slice().sort((a,b)=>{
+    const x=prSortKey(a), y=prSortKey(b);
+    const c = typeof x==='number' ? x-y : x.localeCompare(y,'ko');
+    if(c) return c*dir;
+    return (Number(b.year)*10000+b._m*100+b._d)-(Number(a.year)*10000+a._m*100+a._d);  // 동률이면 최신순
+  });
 
   const scopeLabel = prScope==='all' ? '모든 연도'
                    : prScope==='year' ? `${prYear}년 전체`
