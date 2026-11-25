@@ -1504,8 +1504,24 @@ function drawRefTable(id){
   const head=view.map(v=>
     `<th class="sort" onclick="setRefSort('${id}',${v.src})">${sortHead(String(v.name).replace(/\n/g,' '),refSort[id]&&refSort[id].key===v.src,(refSort[id]||{}).dir)}</th>`).join('');
 
-  const body=rows.slice(0,500).map(r=>'<tr>'+view.map((v,i)=>
-    `<td style="word-break:keep-all;white-space:pre-line${wide[i]?'':';color:var(--text2)'}">${refCell(r[v.src])}</td>`).join('')+'</tr>').join('');
+  /* 연도 칸이 있으면 해가 바뀌는 자리에 띠를 넣습니다(보직자 현황과 같은 모양).
+     다른 칼럼으로 정렬했을 때는 연도가 뒤섞이므로 넣지 않습니다. */
+  const gCol=view.findIndex(v=>/^(연도|년도)$/.test(String(v.name).trim()));
+  const grouped = gCol>=0 && (!refSort[id] || refSort[id].key===view[gCol].src);
+  let lastG=null;
+  const body=rows.slice(0,500).map(r=>{
+    let band='';
+    if(grouped){
+      const g=String(r[view[gCol].src]||'').trim();
+      if(g!==lastG){
+        band=`<tr><td colspan="${view.length}" style="background:var(--surface2);font-size:11px;font-weight:700;`+
+             `letter-spacing:.04em;color:var(--text2);padding:7px 14px">${esc(g||'연도 없음')}</td></tr>`;
+        lastG=g;
+      }
+    }
+    return band+'<tr>'+view.map((v,i)=>
+      `<td style="word-break:keep-all;white-space:pre-line${wide[i]?'':';color:var(--text2)'}">${refCell(r[v.src])}</td>`).join('')+'</tr>';
+  }).join('');
 
   sec.innerHTML=
     `<div class="card">`+
