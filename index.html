@@ -45,7 +45,7 @@ body.embed footer{display:none}
 body.embed .main{padding-bottom:14px}
 body.embed .sec.active .card{margin-bottom:0}
 .sec.locked > *:not(.lockbox){display:none}
-.lockbox{max-width:420px;margin:2.5rem auto}
+.lockbox{max-width:560px;margin:2.5rem auto}
 .content{flex:1;min-width:0;display:flex;flex-direction:column}
 .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:1.1rem 2rem;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:5}
 .topbar h2{font-size:1.15rem;font-weight:700;letter-spacing:-.01em}
@@ -1460,46 +1460,6 @@ async function saveRefRow(id){
   }
 }
 
-/* ── 홍보 성향 딱지 (의료진 특이사항) ──
-   시트에 원래 없던 칸입니다. 내용에서 '거절·부정적' 같은 말이 보이면 부정, '추천·협조' 면 긍정으로
-   **짐작해서** 보여 주고, 사람이 고치면 그 값을 시트의 '홍보 성향' 열에 적습니다(없으면 만듭니다).
-   짐작은 어디까지나 시작값입니다. 고친 값이 있으면 그걸 씁니다. */
-const TAG_SHEET='의료진 홍보 관련 특이사항';
-const TAG_COL='홍보 성향';
-const TAG_NEG=/거절|부정적|안 ?함|싫|꺼림|사양|어려움|곤란|불가|원치|않음|비선호/;
-const TAG_POS=/추천|적극|협조|가능|희망|선호|긍정|잘 ?해|응해/;
-function guessTag(text){
-  const t=String(text||'');
-  if(TAG_NEG.test(t)) return '부정';          // 거절이 섞여 있으면 거절 쪽으로 봅니다
-  if(TAG_POS.test(t)) return '긍정';
-  return '';
-}
-function tagChip(v,guessed){
-  if(v==='긍정') return `<span style="display:inline-block;padding:2px 9px;border-radius:12px;font-size:11px;font-weight:600;background:#e8ece2;color:#4a5740">긍정</span>`;
-  if(v==='부정') return `<span style="display:inline-block;padding:2px 9px;border-radius:12px;font-size:11px;font-weight:600;background:#f7e3dc;color:#8a4b2e">부정</span>`;
-  return `<span style="font-size:11px;color:var(--text3)">${guessed?'·':'—'}</span>`;
-}
-let tagEditRow=null;
-function openTagEdit(row){ tagEditRow=(tagEditRow===row?null:row); drawRefTable('ref-note'); }
-async function saveTag(row,value){
-  const pw=prPw(true); if(!pw) return;
-  const msg=document.getElementById('tag-msg');
-  if(msg) msg.textContent='저장 중…';
-  try{
-    const res=await fetch(FEED_URL,{method:'POST',redirect:'follow',
-      headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body:JSON.stringify({action:'setRefCell',pw:pw,sheet:TAG_SHEET,column:TAG_COL,row:Number(row),value:value})});
-    const j=await res.json();
-    if(!j.ok) throw new Error(j.error||'저장하지 못했습니다');
-    tagEditRow=null;
-    await refetchFeed();
-  }catch(e){
-    const t=String(e.message||e);
-    if(t.indexOf('비밀번호')>=0) sessionStorage.removeItem('prPw');
-    if(msg) msg.textContent=t; else alert(t);
-  }
-}
-
 /** 시트에서 'V' 한 글자로 표시한 해당 여부는 눈에 잘 안 띕니다. 초록 동그라미로 바꿉니다. */
 function refCell(v){
   const t=String(v||'').trim();
@@ -1517,31 +1477,18 @@ function drawRefTable(id){
   if(!t){ sec.innerHTML=`<div class="card"><div class="empty">${esc(tab.sheet)} 을(를) 불러오지 못했습니다</div></div>`; return; }
   const q=refQ(id);
 
-  /* 보여줄 열 목록. 의료진 특이사항에는 시트에 없던 '홍보 성향' 딱지 칸을 내용 바로 뒤에 끼웁니다.
-     시트에 그 열이 생긴 뒤에는 원래 자리(맨 끝) 대신 여기서만 보여 줍니다. */
-  const isNote = tab.sheet===TAG_SHEET;
-  const tagSrc = t.columns.findIndex(c=>String(c).trim()===TAG_COL);
-  let view=t.columns.map((c,i)=>({name:c,src:i})).filter(v=>!(isNote&&v.src===tagSrc));
-  if(isNote){
-    const at=view.findIndex(v=>/내용/.test(v.name));
-    view.splice(at<0?view.length:at+1, 0, {name:TAG_COL, tag:true});
-  }
+  let rows=q?t.rows.filter(r=>r.join(' ').toLowerCase().includes(q)):t.rows;
+  rows=refSorted(id,rows);
 
-  // 행마다 시트 행 번호를 달고 다닙니다. 딱지를 고칠 때 어느 줄인지 알아야 합니다.
-  let rows=t.rows.map((cells,i)=>({cells, num:(t.rowNums||[])[i]}));
-  rows=refSorted(id,rows.map(r=>r.cells)).map(cells=>rows.find(r=>r.cells===cells));
-  if(q) rows=rows.filter(r=>r.cells.join(' ').toLowerCase().includes(q));
-
-  const len=v=>v.tag?4:0;
-  const maxLen=view.map((v,i)=>{
-    if(v.tag) return 4;
+  const view=t.columns.map((c,i)=>({name:c,src:i}));
+  const maxLen=view.map(v=>{
     let m=4;
     t.rows.forEach(r=>String(r[v.src]||'').split('\n').forEach(ln=>{ if(ln.length>m) m=ln.length; }));
     return m;
   });
-  const totalLen=view.map(v=>v.tag?0:t.rows.reduce((n,r)=>n+String(r[v.src]||'').length,0));
-  const wide=view.map((v,i)=>!v.tag && /내용|분야|성과|비고|주제/.test(v.name) && maxLen[i]>=24);
-  const width=maxLen.map((m,i)=>view[i].tag?96:Math.max(78, Math.min(150, m*12+22)));
+  const totalLen=view.map(v=>t.rows.reduce((n,r)=>n+String(r[v.src]||'').length,0));
+  const wide=view.map((v,i)=>/내용|분야|성과|비고|주제/.test(v.name) && maxLen[i]>=24);
+  const width=maxLen.map(m=>Math.max(78, Math.min(150, m*12+22)));
 
   /* 넓은 칸이 여럿일 때 하나가 남는 폭을 다 가져가면(내용 701px) 옆 칸이 쪼그라듭니다.
      남는 폭을 글 양에 비례해 나누되, 차이를 제곱근으로 눌러 한쪽이 독식하지 않게 합니다.
@@ -1554,26 +1501,11 @@ function drawRefTable(id){
       !wide[i] ? `<col style="width:${width[i]}px">`
     :            `<col style="width:${Math.round(free*Math.sqrt(totalLen[i]||1)/wsum)}px">`).join('')
     + (wide.some(Boolean)?'':'<col>');
-  const head=view.map((v,i)=> v.tag
-    ? `<th>${esc(v.name)}</th>`
-    : `<th class="sort" onclick="setRefSort('${id}',${v.src})">${sortHead(String(v.name).replace(/\n/g,' '),refSort[id]&&refSort[id].key===v.src,(refSort[id]||{}).dir)}</th>`).join('');
+  const head=view.map(v=>
+    `<th class="sort" onclick="setRefSort('${id}',${v.src})">${sortHead(String(v.name).replace(/\n/g,' '),refSort[id]&&refSort[id].key===v.src,(refSort[id]||{}).dir)}</th>`).join('');
 
-  const body=rows.slice(0,500).map(r=>'<tr>'+view.map((v,i)=>{
-    if(!v.tag) return `<td style="word-break:keep-all;white-space:pre-line${wide[i]?'':';color:var(--text2)'}">${refCell(r.cells[v.src])}</td>`;
-    const saved=tagSrc>=0?String(r.cells[tagSrc]||'').trim():'';
-    const guess=guessTag(r.cells.join(' '));
-    const val=saved||guess;
-    const open=tagEditRow===r.num;
-    return `<td style="white-space:nowrap">`+
-      (open
-        ? ['긍정','부정',''].map(x=>
-            `<button class="fbtn" style="padding:2px 8px;font-size:11px;margin:0 3px 3px 0" `+
-            `onclick="saveTag(${r.num},'${x}')">${x||'지움'}</button>`).join('')+
-          `<div id="tag-msg" style="font-size:11px;color:var(--accent)"></div>`
-        : `<button style="border:0;background:none;padding:0;cursor:pointer" title="${saved?'직접 지정한 값':'내용에서 짐작한 값 — 눌러서 고치세요'}" `+
-          `onclick="openTagEdit(${r.num})">${tagChip(val,!!guess)}${saved?'':'<span style="font-size:10px;color:var(--text3)">?</span>'}</button>`)+
-      `</td>`;
-  }).join('')+'</tr>').join('');
+  const body=rows.slice(0,500).map(r=>'<tr>'+view.map((v,i)=>
+    `<td style="word-break:keep-all;white-space:pre-line${wide[i]?'':';color:var(--text2)'}">${refCell(r[v.src])}</td>`).join('')+'</tr>').join('');
 
   sec.innerHTML=
     `<div class="card">`+
@@ -1589,8 +1521,6 @@ function drawRefTable(id){
       (rows.length?'':'<div class="empty">조건에 맞는 자료가 없습니다</div>')+
       (rows.length>500?`<div class="empty">앞 500행만 표시했습니다 (전체 ${rows.length}행)</div>`:'')+
       `</div>`+
-      (isNote?`<div style="margin-top:10px;font-size:11px;color:var(--text3)">`+
-        `홍보 성향은 내용에서 짐작한 값입니다(<b>?</b> 표시). 딱지를 눌러 고치면 시트의 「${esc(TAG_COL)}」 열에 저장됩니다.</div>`:'')+
       `<div style="margin-top:12px;font-size:11px;color:var(--text3)">${REF_NOTE}</div>`+
     `</div>`;
   const el=document.getElementById(id+'-q');
