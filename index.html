@@ -1276,7 +1276,7 @@ function renderBoards(){
     `<div class="card">`+
       `<div style="display:flex;align-items:flex-start;flex-wrap:wrap;gap:20px">`+
         `<div><div class="ctitle">의사 보직자 현황</div>`+
-        `<div class="csub" style="margin-bottom:0">${esc(asOf)} · ${BOARDS.people.length}명 · ${esc(BOARDS.label||'')}</div></div>`+
+        `<div class="csub" style="margin-bottom:0">${esc(asOf)} · 보직자 ${BOARDS.people.length}명 · 센터소장 ${(BOARDS.centers||[]).length}명 · ${esc(BOARDS.label||'')}</div></div>`+
         `<input type="search" id="bd-q" value="${esc(q)}" placeholder="이름·보직 검색" style="min-width:200px" oninput="renderBoards()">`+
       `</div>`+
       (stale?`<div style="margin-top:14px;padding:10px 12px;border-radius:8px;background:#fdf1ec;color:#8a4b2e;font-size:12px">⚠ ${esc(stale)}</div>`:'')+
@@ -1284,15 +1284,47 @@ function renderBoards(){
         `${esc(BOARDS.note||'')}<br>출처: <a href="${esc(BOARDS.sourceUrl||'#')}" target="_blank" rel="noopener" style="color:var(--accent)">${esc(BOARDS.source||'')}</a></div>`+
     `</div>`+
     (people.length
-      ? `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:1rem">`+
+      ? `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:1rem;margin-bottom:1.5rem">`+
         people.map(p=>
           `<div class="card" style="margin:0;padding:1rem 1.2rem;display:flex;align-items:baseline;gap:10px">`+
           `<span style="font-size:15px;font-weight:700;white-space:nowrap">${esc(p.name)}</span>`+
           `<span style="font-size:12.5px;color:var(--text2);word-break:keep-all">${esc(p.title)}</span></div>`).join('')+
         `</div>`
-      : `<div class="card"><div class="empty">조건에 맞는 보직자가 없습니다</div></div>`);
+      : `<div class="card" style="margin-bottom:1.5rem"><div class="empty">조건에 맞는 보직자가 없습니다</div></div>`)+
+    centersHtml(q);
   const el=document.getElementById('bd-q');
   if(q){ el.focus(); el.setSelectionRange(el.value.length,el.value.length); }
+}
+
+/** 센터소장 현황. 구분(진료부문 등) → 소속 병원(암병원 등) 순으로 묶어 표로 냅니다. */
+function centersHtml(q){
+  const all=BOARDS.centers||[];
+  if(!all.length) return '';
+  const rows=all.filter(c=>!q||[c.title,c.name,c.dept,c.part,c.sub].join(' ').toLowerCase().includes(q));
+  if(!rows.length) return `<div class="card"><div class="ctitle">${esc(BOARDS.centersLabel||'센터소장 현황')}</div>`+
+    `<div class="empty">조건에 맞는 센터소장이 없습니다</div></div>`;
+
+  // 원본 표 순서를 그대로 둡니다. 구분·소속이 바뀌는 지점에만 머리줄을 넣습니다.
+  let lastPart=null, lastSub=null, body='';
+  rows.forEach(c=>{
+    const sub=c.sub||'';
+    if(c.part!==lastPart || sub!==lastSub){
+      const label=c.part+(sub?` · ${sub}`:'');
+      body+=`<tr><td colspan="3" style="background:var(--surface2);font-size:11px;font-weight:700;`+
+            `letter-spacing:.04em;color:var(--text2);padding:7px 14px">${esc(label)}</td></tr>`;
+      lastPart=c.part; lastSub=sub;
+    }
+    body+=`<tr><td style="word-break:keep-all">${esc(c.title)}`+
+      (c.check?` <span title="${esc(c.check)}" style="color:var(--accent);cursor:help">⚠</span>`:'')+`</td>`+
+      `<td style="font-weight:600;white-space:nowrap">${esc(c.name)}</td>`+
+      `<td style="color:var(--text3);word-break:keep-all">${esc(c.dept)}</td></tr>`;
+  });
+
+  return `<div class="card"><div class="ctitle">${esc(BOARDS.centersLabel||'센터소장 현황')}</div>`+
+    `<div class="csub">${rows.length}명${q?` · "${esc(q)}" 검색`:''} · 같은 사람이 여러 센터를 맡기도 합니다</div>`+
+    `<div style="overflow-x:auto;margin-top:14px"><table class="fixed" style="min-width:560px">`+
+    `<colgroup><col style="width:min(420px,46%)"><col style="width:92px"><col style="width:min(220px,26%)"><col></colgroup>`+
+    `<thead><tr><th>직책명</th><th>성명</th><th>소속</th></tr></thead><tbody>${body}</tbody></table></div></div>`;
 }
 
 /* ── ⑦ 참조 자료 ── */
