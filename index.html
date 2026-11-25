@@ -593,12 +593,17 @@ async function tryUnlock(){
     el.select();
   }
 }
-/** 같은 세션에서 이미 통과했으면 새로고침 뒤에도 조용히 다시 받아옵니다. */
-async function restoreAds(){
+/* 같은 세션에서 이미 통과했으면 새로고침 뒤에도 조용히 다시 받아옵니다.
+   탭을 열 때 기다리면 몇 초 빈 화면이 보이므로, 첫 화면을 그릴 때 미리 시작해 둡니다. */
+let adsPromise=null;
+function adsReady(){
+  if(ADS.length) return Promise.resolve(true);
   const pw=sessionStorage.getItem('adPw');
-  if(!pw || ADS.length) return false;
-  try{ await fetchAds(pw); return true; }
-  catch(e){ sessionStorage.removeItem('adPw'); return false; }
+  if(!pw) return Promise.resolve(false);
+  if(!adsPromise){
+    adsPromise=fetchAds(pw).then(()=>true).catch(()=>{ sessionStorage.removeItem('adPw'); adsPromise=null; return false; });
+  }
+  return adsPromise;
 }
 /** 통과했으면 비번 카드를 지웁니다. 두면 내용 위에 그대로 남습니다. */
 function unlockSection(id){
@@ -640,7 +645,13 @@ function show(id){
   if(tab.embed) ob.href=EMBEDS[id].url;
   const sec=document.getElementById('sec-'+id);
   if(LOCKED_TABS.includes(id) && !adsUnlocked() && sessionStorage.getItem('adPw')){
-    restoreAds().then(ok=>{ if(ok){ delete drawn[id]; show(id); } else show(id); });
+    // 세션에 비번이 남아 있으면 조용히 다시 받아옵니다. 서버가 피드를 새로 만드느라 몇 초 걸립니다.
+    sec.classList.add('locked');
+    lockBox(sec, tab.name);
+    const msg=sec.querySelector('.lockbox');
+    msg.innerHTML=`<div class="ctitle">${esc(tab.name)}</div>`+
+      `<div class="csub" style="margin-bottom:0">광고 자료를 받아오는 중입니다…</div>`;
+    adsReady().then(ok=>{ if(ok) delete drawn[id]; show(id); });
     return;
   }
   if(LOCKED_TABS.includes(id) && !adsUnlocked()){
@@ -654,7 +665,7 @@ function show(id){
 }
 function currentTab(){ return document.querySelector('.sec.active')?.id.replace('sec-','')||'overview'; }
 function redrawCurrentTab(){ const c=currentTab(); Object.keys(drawn).forEach(k=>delete drawn[k]); show(c); }
-function initDashboard(){ Object.keys(drawn).forEach(k=>delete drawn[k]); show(currentTab()); }
+function initDashboard(){ Object.keys(drawn).forEach(k=>delete drawn[k]); adsReady(); show(currentTab()); }
 function destroyChart(id){ const c=Chart.getChart(id); if(c) c.destroy(); }
 
 function years(){ return [...new Set(WORK.map(r=>String(r.year)))].filter(y=>/^\d{4}$/.test(y)).sort(); }
