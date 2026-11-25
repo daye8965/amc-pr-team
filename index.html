@@ -1401,6 +1401,14 @@ function refSorted(id,rows){
   });
 }
 
+/** 시트에서 'V' 한 글자로 표시한 해당 여부는 눈에 잘 안 띕니다. 초록 동그라미로 바꿉니다. */
+function refCell(v){
+  const t=String(v||'').trim();
+  if(t==='V'||t==='v'||t==='O'||t==='o')
+    return `<span title="해당" style="display:inline-flex;width:18px;height:18px;border-radius:50%;`+
+           `background:#5f6b55;color:#fff;align-items:center;justify-content:center;font-size:11px;line-height:1">✓</span>`;
+  return esc(t||'-');
+}
 function refTable(id){ const t=TABS.find(x=>x.id===id); return (FEED.refs||{})[t.sheet]||null; }
 function refQ(id){ const el=document.getElementById(id+'-q'); return (el&&el.value||'').trim().toLowerCase(); }
 
@@ -1421,9 +1429,18 @@ function drawRefTable(id){
   });
   // 이름이 '내용'이어도 실제로 짧으면(명의 출연진의 '혈액암') 넓게 둘 이유가 없습니다
   const wide=t.columns.map((c,i)=>/내용|분야|성과|비고|주제/.test(c) && maxLen[i]>=24);
-  const width=maxLen.map(m=>Math.max(84, Math.min(150, m*12+22)));
-  // 넓은 칸이 하나도 없으면 남는 폭이 칼럼 사이로 퍼집니다. 맨 끝 빈 칸이 받아가게 둡니다.
-  const cols=t.columns.map((c,i)=>wide[i]?'<col>':`<col style="width:${width[i]}px">`).join('')
+  const width=maxLen.map(m=>Math.max(78, Math.min(150, m*12+22)));
+  // 넓은 칸이 여럿이면 남는 폭을 똑같이 나눠 갖습니다. 글이 가장 긴 칸(인터뷰 후보의 '주요 성과')
+  // 하나만 남는 폭을 다 가져가고 나머지는 적당히 묶어 둡니다.
+  // 어느 칸이 글을 제일 많이 담는지는 '가장 긴 한 줄'이 아니라 '전체 글자 수'로 봅니다.
+  // 한 줄만 긴 칸(특이사항의 '비고')이 본문 칸(' 내용')을 밀어내는 일이 있어서입니다.
+  const totalLen=t.columns.map((c,i)=>t.rows.reduce((n,r)=>n+String(r[i]||'').length,0));
+  let flex=-1;
+  wide.forEach((w,i)=>{ if(w && (flex<0 || totalLen[i]>totalLen[flex])) flex=i; });
+  const cols=t.columns.map((c,i)=>
+      !wide[i] ? `<col style="width:${width[i]}px">`
+    : i===flex ? '<col>'
+    :            `<col style="width:16%">`).join('')   // min() 은 고정 레이아웃에서 크롬이 auto 로 봅니다
     + (wide.some(Boolean)?'':'<col>');
   const head=t.columns.map((c,i)=>
     `<th class="sort" onclick="setRefSort('${id}',${i})">${sortHead(c.replace(/\n/g,' '),refSort[id]&&refSort[id].key===i,(refSort[id]||{}).dir)}</th>`).join('');
@@ -1437,7 +1454,7 @@ function drawRefTable(id){
       `<div class="refwrap" style="overflow-x:auto;margin-top:16px"><table class="fixed" style="min-width:760px"><colgroup>${cols}</colgroup>`+
       `<thead><tr>${head}</tr></thead><tbody>`+
       rows.slice(0,500).map(r=>'<tr>'+r.map((v,i)=>
-        `<td style="word-break:keep-all;white-space:pre-line${wide[i]?'':';color:var(--text2)'}">${esc(v||'-')}</td>`).join('')+'</tr>').join('')+
+        `<td style="word-break:keep-all;white-space:pre-line${wide[i]?'':';color:var(--text2)'}">${refCell(v)}</td>`).join('')+'</tr>').join('')+
       `</tbody></table>`+
       (rows.length?'':'<div class="empty">조건에 맞는 자료가 없습니다</div>')+
       (rows.length>500?`<div class="empty">앞 500행만 표시했습니다 (전체 ${rows.length}행)</div>`:'')+
