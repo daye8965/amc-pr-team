@@ -517,6 +517,7 @@ function applyFeed(feed){
   WORK=feed.work||[];
   AD_ROWS=null;   // 광고 메모 합치기 결과를 다시 계산
   PRESS=null;     // 보도자료 추려 둔 것도 다시 계산
+  mergeAds();     // 광고 행은 피드에 없으므로 따로 받아 둔 것을 다시 합칩니다
   drawFeedTabs();
   NEWS_INDEX=null;
   console.log('업무 '+WORK.length+'건, 참조 '+Object.keys(feed.refs||{}).length+'종');
@@ -556,23 +557,48 @@ const drawn={};
 })();
 
 /* ── 광고 탭 비밀번호 ──
-   데이터 자체는 공개 피드에 들어 있습니다. 이 화면은 지나가다 보는 눈을 막는 '커튼'이지
-   진짜 잠금이 아닙니다. 제대로 막으려면 Apps Script 가 광고 행을 doGet 에서 빼고
-   비번 맞는 POST 에만 내주도록 바꿔야 합니다. 비번은 해시만 둡니다(소스에 그대로 적지 않으려고).  */
+   광고 행은 공개 피드(doGet)에 아예 실리지 않습니다. 비번을 Apps Script 에 보내
+   맞을 때만 따로 받아 WORK 에 합칩니다. 그래서 비번을 모르면 피드를 직접 열어도 금액이 안 보입니다.
+   비번은 sessionStorage 에만 둡니다(탭을 닫으면 사라집니다). */
 const LOCKED_TABS=['ad','admedia'];
-const LOCK_SHA='760403364522055a5aca702da6f81191d8ffb1314012fdef2aba4a382b58bb75';
-function adsUnlocked(){ return sessionStorage.getItem('adUnlock')==='1'; }
-async function sha256(t){
-  const b=await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t));
-  return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('');
+let ADS=[];                       // 받아 온 광고 행. 피드를 다시 받을 때 합쳐 넣습니다.
+function adsUnlocked(){ return ADS.length>0; }
+function mergeAds(){
+  if(!ADS.length) return;
+  WORK=WORK.filter(r=>r.source!=='광고').concat(ADS);
+  AD_ROWS=null;
+}
+async function fetchAds(pw){
+  const res=await fetch(FEED_URL,{method:'POST',redirect:'follow',
+    headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body:JSON.stringify({action:'ads',pw:pw})});
+  const j=await res.json();
+  if(!j.ok) throw new Error(j.error||'받아오지 못했습니다');
+  ADS=j.rows||[];
+  mergeAds();
 }
 async function tryUnlock(){
   const el=document.getElementById('lock-pw'), msg=document.getElementById('lock-msg');
-  const ok = await sha256((el.value||'').trim()) === LOCK_SHA;
-  if(!ok){ msg.textContent='비밀번호가 다릅니다.'; el.select(); return; }
-  sessionStorage.setItem('adUnlock','1');
-  LOCKED_TABS.forEach(unlockSection);
-  show(currentTab());
+  const pw=(el.value||'').trim();
+  if(!pw){ msg.textContent='비밀번호를 넣어주세요.'; return; }
+  msg.textContent='확인 중…';
+  try{
+    await fetchAds(pw);
+    sessionStorage.setItem('adPw',pw);
+    LOCKED_TABS.forEach(unlockSection);
+    LOCKED_TABS.forEach(t=>delete drawn[t]);
+    show(currentTab());
+  }catch(e){
+    msg.textContent=String(e.message||e);
+    el.select();
+  }
+}
+/** 같은 세션에서 이미 통과했으면 새로고침 뒤에도 조용히 다시 받아옵니다. */
+async function restoreAds(){
+  const pw=sessionStorage.getItem('adPw');
+  if(!pw || ADS.length) return false;
+  try{ await fetchAds(pw); return true; }
+  catch(e){ sessionStorage.removeItem('adPw'); return false; }
 }
 /** 통과했으면 비번 카드를 지웁니다. 두면 내용 위에 그대로 남습니다. */
 function unlockSection(id){
@@ -594,6 +620,7 @@ function lockBox(sec,name){
       `<button class="fbtn active" onclick="tryUnlock()">열기</button></div>`+
     `<div id="lock-msg" style="margin-top:10px;font-size:12px;color:var(--accent)"></div>`+
     `<div style="margin-top:14px;font-size:11px;color:var(--text3);line-height:1.6">`+
+      `광고 금액은 공개 피드에 실리지 않습니다. 비밀번호가 맞을 때만 따로 받아옵니다.<br>`+
       `탭을 닫으면 다시 물어봅니다. 광고·협찬과 광고 집행 히스토리 두 탭에 같이 걸립니다.</div>`;
   sec.prepend(d);
 }
@@ -612,6 +639,10 @@ function show(id){
   ob.style.display=tab.embed?'':'none';
   if(tab.embed) ob.href=EMBEDS[id].url;
   const sec=document.getElementById('sec-'+id);
+  if(LOCKED_TABS.includes(id) && !adsUnlocked() && sessionStorage.getItem('adPw')){
+    restoreAds().then(ok=>{ if(ok){ delete drawn[id]; show(id); } else show(id); });
+    return;
+  }
   if(LOCKED_TABS.includes(id) && !adsUnlocked()){
     sec.classList.add('locked');
     lockBox(sec, tab.name);

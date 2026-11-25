@@ -19,7 +19,7 @@
  */
 
 /** 고칠 때마다 올리세요. 대시보드 '전체 현황' 맨 아래에 찍혀서, 재배포가 먹었는지 바로 보입니다. */
-const SCRIPT_VERSION = '2026-11-24d';
+const SCRIPT_VERSION = '2026-11-25a';
 
 const SPREADSHEET_ID = '15mRKud-otGhbvY5efenonaZxjlHGKRMhDU9LmoAA2WA';
 
@@ -72,10 +72,24 @@ function sheetByName_(ss, name) {
   return found.length ? found[0] : null;
 }
 
+/**
+ * 광고·협찬은 금액이 들어 있어 공개 피드에 싣지 않습니다.
+ * doGet 에서 빼고, VIEW_PW 가 맞는 POST 에만 따로 내줍니다.
+ * 그래서 비번을 모르면 이 주소를 직접 열어도 광고 행이 아예 오지 않습니다.
+ */
+const LOCKED_SOURCES = ['광고'];
+
 function doGet() {
-  return ContentService
-    .createTextOutput(JSON.stringify(buildFeed_()))
-    .setMimeType(ContentService.MimeType.JSON);
+  const feed = buildFeed_();
+  let hidden = 0;
+  feed.work = feed.work.filter(function (r) {
+    if (LOCKED_SOURCES.indexOf(r.source) < 0) return true;
+    hidden++;
+    return false;
+  });
+  feed.meta.locked = {sources: LOCKED_SOURCES, rows: hidden};
+  feed.meta.tabs.forEach(function (t) { if (t.name === '광고/협찬') t.locked = true; });
+  return jsonOut_(feed);
 }
 
 function buildFeed_() {
@@ -274,7 +288,20 @@ function doPost(e) {
   var out = {ok: false};
   try {
     var body = JSON.parse((e && e.postData && e.postData.contents) || '{}');
-    var pw = PropertiesService.getScriptProperties().getProperty('EDIT_PW');
+    var props = PropertiesService.getScriptProperties();
+
+    // 광고 행 내주기 — 보기 전용 비번(VIEW_PW)
+    if (body.action === 'ads') {
+      var vpw = props.getProperty('VIEW_PW');
+      if (!vpw) { out.error = '스크립트에 VIEW_PW 가 없습니다'; return jsonOut_(out); }
+      if (String(body.pw || '') !== vpw) { out.error = '비밀번호가 다릅니다'; return jsonOut_(out); }
+      out.ok = true;
+      out.rows = buildFeed_().work.filter(function (r) { return LOCKED_SOURCES.indexOf(r.source) >= 0; });
+      return jsonOut_(out);
+    }
+
+    // 날짜 고치기 — 쓰기 비번(EDIT_PW)
+    var pw = props.getProperty('EDIT_PW');
     if (!pw) { out.error = '스크립트에 EDIT_PW 가 없습니다'; return jsonOut_(out); }
     if (String(body.pw || '') !== pw) { out.error = '비밀번호가 다릅니다'; return jsonOut_(out); }
     if (body.action !== 'setDate') { out.error = '허용되지 않은 요청입니다'; return jsonOut_(out); }
@@ -418,4 +445,6 @@ function testFeed() {
   var nr = feed.meta.newsroom || {};
   var nrN = 0; Object.keys(nr).forEach(function (k) { nrN += nr[k].length; });
   Logger.log('뉴스룸 보도자료 %s건 / %s일', nrN, Object.keys(nr).length);
+  var locked = feed.work.filter(function (r) { return LOCKED_SOURCES.indexOf(r.source) >= 0; }).length;
+  Logger.log('공개 피드에서 빼는 광고 행 %s건 (VIEW_PW 로만 내줍니다)', locked);
 }
