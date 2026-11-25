@@ -269,7 +269,10 @@ footer{text-align:center;padding:1.5rem;font-size:11px;color:var(--text3);border
     </div>
   </div>
   <div class="card">
-    <div style="overflow-x:auto"><table><thead><tr><th>월</th><th>주</th><th>도움말자료 준비</th><th>질병 기념일</th></tr></thead><tbody id="help-tbody"></tbody></table>
+    <div class="refwrap" style="overflow-x:auto"><table class="fixed" style="min-width:940px"><colgroup>
+      <col style="width:52px"><col style="width:48px"><col style="width:30%"><col style="width:23%"><col></colgroup>
+      <thead><tr><th>월</th><th>주</th><th>도움말자료 준비</th><th>질병 기념일</th><th>참고 자료</th></tr></thead>
+      <tbody id="help-tbody"></tbody></table>
     <div id="help-empty" class="empty" style="display:none">해당 연도 자료가 없습니다</div></div>
   </div>
 </section>
@@ -997,15 +1000,55 @@ function drawHelp(){
     `<button class="fbtn${y===helpYear?' active':''}" onclick="setHelpYear('${y}')">${y}</button>`).join('');
   renderHelp();
 }
+/** 참고 자료 칸에 교수명과 영상 주소가 같이 들어 있어, 주소만 링크로 바꿉니다. */
+function helpLink(s){
+  const re=/https?:\/\/[^\s<)]+/g, out=[]; let last=0,m;
+  while((m=re.exec(s))){
+    out.push(esc(s.slice(last,m.index)));
+    const u=m[0], label=u.length>44?u.slice(0,44)+'…':u;
+    out.push(`<a href="${esc(u)}" target="_blank" rel="noopener" `+
+             `style="color:var(--accent);word-break:break-all">${esc(label)}</a>`);
+    last=m.index+u.length;
+  }
+  out.push(esc(s.slice(last)));
+  return out.join('');
+}
 function renderHelp(){
   const rows=WORK.filter(r=>r.source==='도움말'&&String(r.year)===helpYear);
   const mon=v=>{const n=parseInt(v,10);return isNaN(n)?99:n;};
-  rows.sort((a,b)=>mon(a.month)-mon(b.month)||mon(a.week)-mon(b.week));
   document.getElementById('help-empty').style.display=rows.length?'none':'block';
-  document.getElementById('help-tbody').innerHTML=rows.map(r=>
-    `<tr><td class="nowrap">${esc(r.month)}</td><td class="nowrap">${esc(r.week||'-')}</td>`+
-    `<td style="max-width:460px;word-break:keep-all">${esc(r.title)}</td>`+
-    `<td style="color:var(--text3)">${esc(r.anniversary||'-')}</td></tr>`).join('');
+
+  // 시트처럼 월을 세로로 묶고, 그 아래 1~5주를 빈 줄까지 그대로 둡니다.
+  const by={}, months=[];
+  rows.forEach(r=>{
+    const k=String(r.month||'-');
+    if(!by[k]){ by[k]={label:k,weeks:{}}; months.push(by[k]); }
+    const w=String(r.week||'-');
+    (by[k].weeks[w]=by[k].weeks[w]||[]).push(r);
+  });
+  months.sort((a,b)=>mon(a.label)-mon(b.label));
+
+  const cell='padding:6px 8px;white-space:pre-line;word-break:keep-all;line-height:1.5;vertical-align:top';
+  let html='';
+  months.forEach((m,mi)=>{
+    const weeks=[...new Set(['1주','2주','3주','4주','5주',...Object.keys(m.weeks)])]
+      .filter(w=>w!=='-'||m.weeks[w]).sort((a,b)=>mon(a)-mon(b));
+    const bg=mi%2?'background:var(--surface2);':'';
+    weeks.forEach((w,i)=>{
+      const rs=m.weeks[w]||[];
+      const pick=f=>rs.map(r=>r[f]).filter(Boolean).join('\n');
+      const top=i===0?'border-top:2px solid var(--border);':'';
+      const st=`${bg}${top}${cell}`;
+      html+=`<tr>`;
+      if(i===0) html+=`<td rowspan="${weeks.length}" style="${bg}${top}padding:6px 4px;`+
+        `text-align:center;vertical-align:middle;font-weight:700;white-space:nowrap">${esc(m.label)}</td>`;
+      html+=`<td style="${st}text-align:center;color:var(--text3);white-space:nowrap">${esc(w)}</td>`+
+        `<td style="${st}">${helpLink(pick('title'))}</td>`+
+        `<td style="${st}color:var(--text2)">${esc(pick('anniversary'))}</td>`+
+        `<td style="${st}color:var(--text3);font-size:12px">${helpLink(pick('ref'))}</td></tr>`;
+    });
+  });
+  document.getElementById('help-tbody').innerHTML=html;
 }
 
 /* ── ⑥ 보도자료 배포 ── */
@@ -1332,6 +1375,12 @@ function bdStale(){
   return `${cur}년 보직현황이 아직 없습니다. 노션에서 확인해 추가해 주세요.`;
 }
 
+function bdAsOf(Y){
+  const d=String(Y.asOf||'').split('-');
+  return d.length===3?`${d[0]}년 ${Number(d[1])}월 ${Number(d[2])}일 기준`:String(Y.asOf||Y.year||'');
+}
+
+/** 머리글 카드(연도 버튼·검색창)는 여기서 한 번만 그립니다. */
 function renderBoards(){
   const years=bdYears();
   if(bdYear===null || !years.includes(bdYear)) bdYear=years[0]||null;
@@ -1339,20 +1388,54 @@ function renderBoards(){
   const sec=document.getElementById('sec-boards');
   if(!Y){ sec.innerHTML='<div class="card"><div class="empty">명단이 비어 있습니다</div></div>'; return; }
 
+  const q=((document.getElementById('bd-q')||{}).value||'').trim();
+  const stale=bdStale();
+
+  sec.innerHTML=
+    `<div class="card">`+
+      `<div style="display:flex;align-items:flex-start;flex-wrap:wrap;gap:20px">`+
+        `<div><div class="ctitle">의사 보직자 현황</div>`+
+        `<div class="csub" id="bd-sub" style="margin-bottom:0"></div></div>`+
+        `<div class="frow" style="align-items:center">`+
+          years.map(y=>`<button class="fbtn${y===bdYear?' active':''}" onclick="bdSet('${esc(y)}')">${esc(y)}년</button>`).join('')+
+        `</div>`+
+        `<input type="search" id="bd-q" value="${esc(q)}" placeholder="이름·보직·소속 검색" style="min-width:200px" oninput="renderBoardsList()">`+
+      `</div>`+
+      (stale?`<div style="margin-top:14px;padding:10px 12px;border-radius:8px;background:#fdf1ec;color:#8a4b2e;font-size:12px">⚠ ${esc(stale)}</div>`:'')+
+      `<div style="margin-top:12px;font-size:11px;color:var(--text3);line-height:1.6">`+
+        `${esc(BOARDS.note||'')}<br>출처: <a href="${esc(BOARDS.sourceUrl||'#')}" target="_blank" rel="noopener" style="color:var(--accent)">${esc(BOARDS.source||'')}</a></div>`+
+    `</div>`+
+    `<div id="bd-list"></div>`;
+
+  renderBoardsList();
+  const el=document.getElementById('bd-q');
+  if(q){ el.focus(); el.setSelectionRange(el.value.length,el.value.length); }
+}
+
+/**
+ * 검색할 때는 표만 다시 그립니다.
+ * 검색창까지 다시 그리면 글자를 치는 도중에 입력칸이 통째로 갈려서
+ * 한글 조합이 끊기고 'ㅇㅣㄷㅏ' 처럼 자모가 흩어집니다.
+ */
+function renderBoardsList(){
+  const Y=(BOARDS.years||[]).find(y=>String(y.year)===bdYear);
+  const box=document.getElementById('bd-list');
+  if(!Y||!box) return;
+
   const q=((document.getElementById('bd-q')||{}).value||'').trim().toLowerCase();
   const rows=(Y.rows||[]).filter(r=>!q||[r.title,r.name,r.dept,r.part,r.sub].join(' ').toLowerCase().includes(q));
-  const d=(Y.asOf||'').split('-');
-  const asOf=d.length===3?`${d[0]}년 ${Number(d[1])}월 ${Number(d[2])}일 기준`:esc(Y.asOf||Y.year);
-  const stale=bdStale();
+
+  const sub=document.getElementById('bd-sub');
+  if(sub) sub.textContent=`${bdAsOf(Y)} · ${rows.length}명${q?' 검색됨':''} · ${Y.label||''}`;
 
   // 원본 순서를 그대로 두고, 구분이 바뀌는 지점에만 머리줄을 넣습니다
   let lastPart=null, lastSub=null, body='';
   rows.forEach(r=>{
-    const sub=r.sub||'';
-    if(r.part!==lastPart || sub!==lastSub){
+    const sb=r.sub||'';
+    if(r.part!==lastPart || sb!==lastSub){
       body+=`<tr><td colspan="3" style="background:var(--surface2);font-size:11px;font-weight:700;`+
-            `letter-spacing:.04em;color:var(--text2);padding:7px 14px">${esc(r.part+(sub?` · ${sub}`:''))}</td></tr>`;
-      lastPart=r.part; lastSub=sub;
+            `letter-spacing:.04em;color:var(--text2);padding:7px 14px">${esc(r.part+(sb?` · ${sb}`:''))}</td></tr>`;
+      lastPart=r.part; lastSub=sb;
     }
     body+=`<tr><td style="word-break:keep-all">${esc(r.title)}`+
       (r.check?` <span title="${esc(r.check)}" style="color:var(--accent);cursor:help">⚠</span>`:'')+`</td>`+
@@ -1360,27 +1443,11 @@ function renderBoards(){
       `<td style="color:var(--text3);word-break:keep-all">${esc(r.dept||'-')}</td></tr>`;
   });
 
-  sec.innerHTML=
-    `<div class="card">`+
-      `<div style="display:flex;align-items:flex-start;flex-wrap:wrap;gap:20px">`+
-        `<div><div class="ctitle">의사 보직자 현황</div>`+
-        `<div class="csub" style="margin-bottom:0">${esc(asOf)} · ${(Y.rows||[]).length}명 · ${esc(Y.label||'')}</div></div>`+
-        `<div class="frow" style="align-items:center">`+
-          years.map(y=>`<button class="fbtn${y===bdYear?' active':''}" onclick="bdSet('${esc(y)}')">${esc(y)}년</button>`).join('')+
-        `</div>`+
-        `<input type="search" id="bd-q" value="${esc(q)}" placeholder="이름·보직·소속 검색" style="min-width:200px" oninput="renderBoards()">`+
-      `</div>`+
-      (stale?`<div style="margin-top:14px;padding:10px 12px;border-radius:8px;background:#fdf1ec;color:#8a4b2e;font-size:12px">⚠ ${esc(stale)}</div>`:'')+
-      `<div style="margin-top:12px;font-size:11px;color:var(--text3);line-height:1.6">`+
-        `${esc(BOARDS.note||'')}<br>출처: <a href="${esc(BOARDS.sourceUrl||'#')}" target="_blank" rel="noopener" style="color:var(--accent)">${esc(BOARDS.source||'')}</a></div>`+
-    `</div>`+
-    (rows.length
-      ? `<div class="card"><div style="overflow-x:auto"><table class="fixed" style="min-width:560px">`+
-        `<colgroup><col style="width:min(420px,46%)"><col style="width:92px"><col style="width:min(220px,26%)"><col></colgroup>`+
-        `<thead><tr><th>직책명</th><th>성명</th><th>소속</th></tr></thead><tbody>${body}</tbody></table></div></div>`
-      : `<div class="card"><div class="empty">조건에 맞는 보직자가 없습니다</div></div>`);
-  const el=document.getElementById('bd-q');
-  if(q){ el.focus(); el.setSelectionRange(el.value.length,el.value.length); }
+  box.innerHTML = rows.length
+    ? `<div class="card"><div style="overflow-x:auto"><table class="fixed" style="min-width:560px">`+
+      `<colgroup><col style="width:48%"><col style="width:110px"><col></colgroup>`+   /* min() 은 크롬이 auto 로 읽습니다 */
+      `<thead><tr><th>직책명</th><th>성명</th><th>소속</th></tr></thead><tbody>${body}</tbody></table></div></div>`
+    : `<div class="card"><div class="empty">조건에 맞는 보직자가 없습니다</div></div>`;
 }
 
 /* ── ⑦ 참조 자료 ── */
@@ -1391,7 +1458,7 @@ const refSort={};
 function setRefSort(id,i){
   const cur=refSort[id];
   refSort[id] = (cur&&cur.key===i) ? {key:i,dir:cur.dir==='asc'?'desc':'asc'} : {key:i,dir:'asc'};
-  drawRefTable(id);
+  refBody(id);                                  // 표만 다시 그립니다(검색창 유지)
 }
 function refSorted(id,rows){
   const st=refSort[id];
@@ -1474,14 +1541,48 @@ function refCell(v){
 function refTable(id){ const t=TABS.find(x=>x.id===id); return (FEED.refs||{})[t.sheet]||null; }
 function refQ(id){ const el=document.getElementById(id+'-q'); return (el&&el.value||'').trim().toLowerCase(); }
 
-/** 인터뷰 후보·명의 출연진·특이사항처럼 평범한 표는 이 하나로 그립니다. */
+/**
+ * 인터뷰 후보·명의 출연진·특이사항처럼 평범한 표는 이 하나로 그립니다.
+ * 머리글 카드(검색창·줄 추가)는 여기서만 그리고, 검색·정렬은 refBody() 가 표만 갈아끼웁니다.
+ */
 function drawRefTable(id){
   const tab=TABS.find(x=>x.id===id), t=refTable(id), sec=document.getElementById('sec-'+id);
   if(!t){ sec.innerHTML=`<div class="card"><div class="empty">${esc(tab.sheet)} 을(를) 불러오지 못했습니다</div></div>`; return; }
+  const q=((document.getElementById(id+'-q')||{}).value||'').trim();
+
+  sec.innerHTML=
+    `<div class="card">`+
+      `<div style="display:flex;align-items:flex-start;flex-wrap:wrap;gap:20px">`+
+        `<div><div class="ctitle">${esc(tab.name)}</div>`+
+        `<div class="csub" id="${id}-sub" style="margin-bottom:0"></div></div>`+
+        `<input type="search" id="${id}-q" value="${esc(q)}" placeholder="표 안에서 검색" style="min-width:210px" oninput="refBody('${id}')">`+
+        `<button class="fbtn" onclick="toggleRefAdd('${id}')">${refAddOpen===id?'닫기':'+ 줄 추가'}</button>`+
+      `</div>`+
+      (refAddOpen===id?refAddForm(id,t):'')+
+      `<div id="${id}-body"></div>`+
+      `<div style="margin-top:12px;font-size:11px;color:var(--text3)">${REF_NOTE}</div>`+
+    `</div>`;
+
+  refBody(id);
+  const el=document.getElementById(id+'-q');
+  if(q){ el.focus(); el.setSelectionRange(el.value.length,el.value.length); }
+}
+
+/**
+ * 표만 다시 그립니다. 검색창까지 다시 그리면 글자를 치는 도중에 입력칸이 통째로 갈려서
+ * 한글 조합이 끊기고 'ㅇㅣㄷㅏ' 처럼 자모가 흩어집니다.
+ */
+function refBody(id){
+  const t=refTable(id), box=document.getElementById(id+'-body');
+  if(!t||!box) return;
+  const tab=TABS.find(x=>x.id===id);
   const q=refQ(id);
 
   let rows=q?t.rows.filter(r=>r.join(' ').toLowerCase().includes(q)):t.rows;
   rows=refSorted(id,rows);
+
+  const sub=document.getElementById(id+'-sub');
+  if(sub) sub.textContent=`시트 「${tab.sheet}」 · ${rows.length}행${q?` · "${q}" 검색`:''}`;
 
   const view=t.columns.map((c,i)=>({name:c,src:i}));
   const maxLen=view.map(v=>{
@@ -1526,24 +1627,12 @@ function drawRefTable(id){
       `<td style="word-break:keep-all;white-space:pre-line${wide[i]?'':';color:var(--text2)'}">${refCell(r[v.src])}</td>`).join('')+'</tr>';
   }).join('');
 
-  sec.innerHTML=
-    `<div class="card">`+
-      `<div style="display:flex;align-items:flex-start;flex-wrap:wrap;gap:20px">`+
-        `<div><div class="ctitle">${esc(tab.name)}</div>`+
-        `<div class="csub" style="margin-bottom:0">시트 「${esc(tab.sheet)}」 · ${rows.length}행${q?` · "${esc(q)}" 검색`:''}</div></div>`+
-        `<input type="search" id="${id}-q" value="${esc(q)}" placeholder="표 안에서 검색" style="min-width:210px" oninput="drawRefTable('${id}')">`+
-        `<button class="fbtn" onclick="toggleRefAdd('${id}')">${refAddOpen===id?'닫기':'+ 줄 추가'}</button>`+
-      `</div>`+
-      (refAddOpen===id?refAddForm(id,t):'')+
-      `<div class="refwrap" style="overflow-x:auto;margin-top:16px"><table class="fixed" style="min-width:760px"><colgroup>${cols}</colgroup>`+
-      `<thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`+
-      (rows.length?'':'<div class="empty">조건에 맞는 자료가 없습니다</div>')+
-      (rows.length>500?`<div class="empty">앞 500행만 표시했습니다 (전체 ${rows.length}행)</div>`:'')+
-      `</div>`+
-      `<div style="margin-top:12px;font-size:11px;color:var(--text3)">${REF_NOTE}</div>`+
+  box.innerHTML=
+    `<div class="refwrap" style="overflow-x:auto;margin-top:16px"><table class="fixed" style="min-width:760px"><colgroup>${cols}</colgroup>`+
+    `<thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`+
+    (rows.length?'':'<div class="empty">조건에 맞는 자료가 없습니다</div>')+
+    (rows.length>500?`<div class="empty">앞 500행만 표시했습니다 (전체 ${rows.length}행)</div>`:'')+
     `</div>`;
-  const el=document.getElementById(id+'-q');
-  if(q){ el.focus(); el.setSelectionRange(el.value.length,el.value.length); }
 }
 
 /**

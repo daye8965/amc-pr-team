@@ -19,7 +19,7 @@
  */
 
 /** 고칠 때마다 올리세요. 대시보드 '전체 현황' 맨 아래에 찍혀서, 재배포가 먹었는지 바로 보입니다. */
-const SCRIPT_VERSION = '2026-11-25b';
+const SCRIPT_VERSION = '2026-11-25c';
 
 const SPREADSHEET_ID = '15mRKud-otGhbvY5efenonaZxjlHGKRMhDU9LmoAA2WA';
 
@@ -41,13 +41,18 @@ const WORK_TABS = [
     map: {status:'진행 상황', year:'연도', media:'언론사', day:'일자', amount:'금액(천원)',
           kind:'품의 구분', title:'내용', budget:'예산'}
   },
+  // 도움말자료는 '준비' 칸이 비고 기념일만 있는 줄이 훨씬 많습니다(1월 4주 두통의 날 등).
+  // keep 에 적은 칸 중 하나라도 차 있으면 남깁니다. 아니면 달력의 대부분이 사라집니다.
+  // 월은 5주를 세로로 병합해 둬서 2주부터 빈 값으로 읽힙니다 → carry 로 위 줄 값을 잇습니다.
   {
     sheet: '2026 도움말자료', source: '도움말', fixedYear: 2026,
-    map: {month:'월', week:'주', title:'도움말자료 준비', anniversary:'질병 기념일'}
+    map: {month:'월', week:'주', title:'도움말자료 준비', anniversary:'질병 기념일', ref:'참고 자료'},
+    keep: ['title', 'anniversary', 'ref'], carry: ['month']
   },
   {
     sheet: '2023 도움말자료', source: '도움말', fixedYear: 2023,
-    map: {month:'월', week:'주', title:'도움말자료 준비', anniversary:'질병 기념일'}
+    map: {month:'월', week:'주', title:'도움말자료 준비', anniversary:'질병 기념일', ref:'참고 자료'},
+    keep: ['title', 'anniversary', 'ref'], carry: ['month']
   }
 ];
 
@@ -107,7 +112,7 @@ function buildFeed_() {
     if (headerRow < 0) { meta.tabs.push({name: def.sheet, kind: 'work', rows: 0, error: '헤더 못 찾음'}); return; }
 
     const idx = columnIndex_(values[headerRow]);
-    let count = 0, lastYear = '';
+    let count = 0, lastYear = '', carried = {};
 
     for (let i = headerRow + 1; i < values.length; i++) {
       const row = values[i];
@@ -127,7 +132,13 @@ function buildFeed_() {
         rec.year = Number(rec.year);
       }
 
-      if (!rec.title) continue;                       // 빈 줄·소계 줄 제외
+      (def.carry || []).forEach(function (f) {        // 세로 병합 칸 잇기
+        if (rec[f]) carried[f] = rec[f];
+        else rec[f] = carried[f] || '';
+      });
+
+      const keep = def.keep || ['title'];
+      if (!keep.some(function (f) { return rec[f]; })) continue;   // 빈 줄·소계 줄 제외
       rec.month = /^\d+$/.test(rec.month) ? Number(rec.month) : rec.month;
       rec._row = i + 1;                               // 시트 행 번호(대시보드에서 날짜를 고칠 때 씁니다)
       work.push(rec);
