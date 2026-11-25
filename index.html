@@ -542,7 +542,9 @@ const TABS=[
   {id:'radar',    group:'언론 및 연구실적', name:'연구성과 레이더', icon:'🔬', crumb:'PubMed 신규 논문에서 보도자료 후보를 고릅니다 · 따로 운영되는 페이지', embed:true, draw:()=>drawEmbed('radar')},
   // 참조 리스트는 성격이 제각각이라 한 탭에 묶지 않고 하나씩 둡니다. sheet 는 시트 탭 이름.
   {id:'boards',   group:'자료',      name:'의사 보직자 현황', icon:'🏛️', crumb:'보직자 명단 · 매년 1월 개편',  draw:()=>drawBoards()},
-  {id:'ref-doc',  group:'자료',      name:'암병원 교수', icon:'🎗️', crumb:'암종별 소속과 교수',           sheet:'암병원 교수', draw:()=>drawRefDoctors()},
+  // 암병원 교수는 시트 내용이 옛 버전이라 2026-11-25에 숨겼습니다.
+  // 시트가 갱신되면 이 줄의 주석만 풀면 됩니다(그리는 코드 drawRefDoctors 는 그대로 있습니다).
+  // {id:'ref-doc',  group:'자료',      name:'암병원 교수', icon:'🎗️', crumb:'암종별 소속과 교수',           sheet:'암병원 교수', draw:()=>drawRefDoctors()},
   {id:'ref-cand', group:'자료',      name:'인터뷰 후보', icon:'🎙️', crumb:'언론사 인터뷰 후보 리스트',     sheet:'언론사 인터뷰 후보 리스트', draw:()=>drawRefTable('ref-cand')},
   {id:'ref-tv',   group:'자료',      name:'명의 출연진', icon:'📺', crumb:'방송 출연 기록',               sheet:'명의 출연진', draw:()=>drawRefTable('ref-tv')},
   {id:'ref-note', group:'자료',      name:'의료진 특이사항', icon:'📝', crumb:'홍보 관련 참고 메모',       sheet:'의료진 홍보 관련 특이사항', draw:()=>drawRefTable('ref-note')},
