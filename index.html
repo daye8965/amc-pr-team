@@ -569,8 +569,15 @@ async function tryUnlock(){
   const ok = await sha256((el.value||'').trim()) === LOCK_SHA;
   if(!ok){ msg.textContent='비밀번호가 다릅니다.'; el.select(); return; }
   sessionStorage.setItem('adUnlock','1');
-  LOCKED_TABS.forEach(t=>document.getElementById('sec-'+t).classList.remove('locked'));
+  LOCKED_TABS.forEach(unlockSection);
   show(currentTab());
+}
+/** 통과했으면 비번 카드를 지웁니다. 두면 내용 위에 그대로 남습니다. */
+function unlockSection(id){
+  const sec=document.getElementById('sec-'+id);
+  sec.classList.remove('locked');
+  const box=sec.querySelector('.lockbox');
+  if(box) box.remove();
 }
 function lockBox(sec,name){
   if(sec.querySelector('.lockbox')) return;
@@ -609,7 +616,7 @@ function show(id){
     setTimeout(()=>{ const el=document.getElementById('lock-pw'); if(el) el.focus(); },0);
     return;                                   // 잠겨 있으면 그리지 않습니다
   }
-  sec.classList.remove('locked');
+  if(LOCKED_TABS.includes(id)) unlockSection(id); else sec.classList.remove('locked');
   if(!drawn[id]){ tab.draw(); drawn[id]=true; }
 }
 function currentTab(){ return document.querySelector('.sec.active')?.id.replace('sec-','')||'overview'; }
