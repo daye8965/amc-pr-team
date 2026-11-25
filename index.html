@@ -1237,10 +1237,12 @@ function drawEmbed(id){
 /* ── 의사 보직자 현황 ── */
 
 /* 시트가 아니라 노션에서 옮겨 온 명단이라 저장소에 파일로 둡니다(data/boards.json).
-   보직은 매년 1월 개편되므로 기준일(asOf)을 같이 넣고, 해가 바뀌었는데 갱신이 안 됐으면
-   화면에서 알려줍니다. 다음 갱신 때는 사람 목록과 label·asOf 만 갈아끼우면 됩니다. */
+   보직은 매년 1월 개편됩니다. 지난 해를 지우지 않고 years 에 한 묶음씩 쌓아 연도 탭으로 봅니다.
+   한 해 묶음은 '주요 보직 → 기획조정실 → 국제사업실 → 진료부문 → 교육부문 → 연구부문' 순서를
+   원본 표 그대로 둡니다. 정렬하지 마세요 — 순서 자체가 조직도입니다. */
 const BOARDS_URL='data/boards.json';
-let BOARDS=null;
+let BOARDS=null, bdYear=null;
+
 async function drawBoards(){
   const sec=document.getElementById('sec-boards');
   if(!BOARDS){
@@ -1256,75 +1258,64 @@ async function drawBoards(){
   }
   renderBoards();
 }
-function boardsStale(){
-  // 기준일이 지난 해이고 1월이 지났으면 올해 개편이 아직 안 들어온 것입니다
-  const y=Number((BOARDS.asOf||'').slice(0,4)), now=new Date();
-  if(!y) return null;
-  const gap=now.getFullYear()-y;
-  if(gap<=0) return null;
-  if(gap===1 && now.getMonth()<1) return null;        // 해가 막 바뀐 1월까지는 봐줍니다
-  return `${now.getFullYear()}년 개편이 아직 반영되지 않았습니다. 노션의 보직현황을 확인해 주세요.`;
+function bdYears(){ return (BOARDS.years||[]).map(y=>String(y.year)).sort().reverse(); }
+function bdSet(y){ bdYear=y; renderBoards(); }
+function bdStale(){
+  // 올해 명단이 아직 없으면 알려줍니다. 1월 안에는 봐줍니다.
+  const now=new Date(), cur=String(now.getFullYear());
+  if(bdYears().includes(cur) || now.getMonth()<1) return null;
+  return `${cur}년 보직현황이 아직 없습니다. 노션에서 확인해 추가해 주세요.`;
 }
-function renderBoards(){
-  const q=((document.getElementById('bd-q')||{}).value||'').trim().toLowerCase();
-  const people=(BOARDS.people||[]).filter(p=>!q||(p.name+' '+p.title).toLowerCase().includes(q));
-  const stale=boardsStale();
-  const d=(BOARDS.asOf||'').split('-');
-  const asOf=d.length===3?`${d[0]}년 ${Number(d[1])}월 ${Number(d[2])}일 기준`:esc(BOARDS.asOf||'');
 
-  document.getElementById('sec-boards').innerHTML=
+function renderBoards(){
+  const years=bdYears();
+  if(bdYear===null || !years.includes(bdYear)) bdYear=years[0]||null;
+  const Y=(BOARDS.years||[]).find(y=>String(y.year)===bdYear);
+  const sec=document.getElementById('sec-boards');
+  if(!Y){ sec.innerHTML='<div class="card"><div class="empty">명단이 비어 있습니다</div></div>'; return; }
+
+  const q=((document.getElementById('bd-q')||{}).value||'').trim().toLowerCase();
+  const rows=(Y.rows||[]).filter(r=>!q||[r.title,r.name,r.dept,r.part,r.sub].join(' ').toLowerCase().includes(q));
+  const d=(Y.asOf||'').split('-');
+  const asOf=d.length===3?`${d[0]}년 ${Number(d[1])}월 ${Number(d[2])}일 기준`:esc(Y.asOf||Y.year);
+  const stale=bdStale();
+
+  // 원본 순서를 그대로 두고, 구분이 바뀌는 지점에만 머리줄을 넣습니다
+  let lastPart=null, lastSub=null, body='';
+  rows.forEach(r=>{
+    const sub=r.sub||'';
+    if(r.part!==lastPart || sub!==lastSub){
+      body+=`<tr><td colspan="3" style="background:var(--surface2);font-size:11px;font-weight:700;`+
+            `letter-spacing:.04em;color:var(--text2);padding:7px 14px">${esc(r.part+(sub?` · ${sub}`:''))}</td></tr>`;
+      lastPart=r.part; lastSub=sub;
+    }
+    body+=`<tr><td style="word-break:keep-all">${esc(r.title)}`+
+      (r.check?` <span title="${esc(r.check)}" style="color:var(--accent);cursor:help">⚠</span>`:'')+`</td>`+
+      `<td style="font-weight:600;white-space:nowrap">${esc(r.name||'-')}</td>`+
+      `<td style="color:var(--text3);word-break:keep-all">${esc(r.dept||'-')}</td></tr>`;
+  });
+
+  sec.innerHTML=
     `<div class="card">`+
       `<div style="display:flex;align-items:flex-start;flex-wrap:wrap;gap:20px">`+
         `<div><div class="ctitle">의사 보직자 현황</div>`+
-        `<div class="csub" style="margin-bottom:0">${esc(asOf)} · 보직자 ${BOARDS.people.length}명 · 센터소장 ${(BOARDS.centers||[]).length}명 · ${esc(BOARDS.label||'')}</div></div>`+
-        `<input type="search" id="bd-q" value="${esc(q)}" placeholder="이름·보직 검색" style="min-width:200px" oninput="renderBoards()">`+
+        `<div class="csub" style="margin-bottom:0">${esc(asOf)} · ${(Y.rows||[]).length}명 · ${esc(Y.label||'')}</div></div>`+
+        `<div class="frow" style="align-items:center">`+
+          years.map(y=>`<button class="fbtn${y===bdYear?' active':''}" onclick="bdSet('${esc(y)}')">${esc(y)}년</button>`).join('')+
+        `</div>`+
+        `<input type="search" id="bd-q" value="${esc(q)}" placeholder="이름·보직·소속 검색" style="min-width:200px" oninput="renderBoards()">`+
       `</div>`+
       (stale?`<div style="margin-top:14px;padding:10px 12px;border-radius:8px;background:#fdf1ec;color:#8a4b2e;font-size:12px">⚠ ${esc(stale)}</div>`:'')+
       `<div style="margin-top:12px;font-size:11px;color:var(--text3);line-height:1.6">`+
         `${esc(BOARDS.note||'')}<br>출처: <a href="${esc(BOARDS.sourceUrl||'#')}" target="_blank" rel="noopener" style="color:var(--accent)">${esc(BOARDS.source||'')}</a></div>`+
     `</div>`+
-    (people.length
-      ? `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:1rem;margin-bottom:1.5rem">`+
-        people.map(p=>
-          `<div class="card" style="margin:0;padding:1rem 1.2rem;display:flex;align-items:baseline;gap:10px">`+
-          `<span style="font-size:15px;font-weight:700;white-space:nowrap">${esc(p.name)}</span>`+
-          `<span style="font-size:12.5px;color:var(--text2);word-break:keep-all">${esc(p.title)}</span></div>`).join('')+
-        `</div>`
-      : `<div class="card" style="margin-bottom:1.5rem"><div class="empty">조건에 맞는 보직자가 없습니다</div></div>`)+
-    centersHtml(q);
+    (rows.length
+      ? `<div class="card"><div style="overflow-x:auto"><table class="fixed" style="min-width:560px">`+
+        `<colgroup><col style="width:min(420px,46%)"><col style="width:92px"><col style="width:min(220px,26%)"><col></colgroup>`+
+        `<thead><tr><th>직책명</th><th>성명</th><th>소속</th></tr></thead><tbody>${body}</tbody></table></div></div>`
+      : `<div class="card"><div class="empty">조건에 맞는 보직자가 없습니다</div></div>`);
   const el=document.getElementById('bd-q');
   if(q){ el.focus(); el.setSelectionRange(el.value.length,el.value.length); }
-}
-
-/** 센터소장 현황. 구분(진료부문 등) → 소속 병원(암병원 등) 순으로 묶어 표로 냅니다. */
-function centersHtml(q){
-  const all=BOARDS.centers||[];
-  if(!all.length) return '';
-  const rows=all.filter(c=>!q||[c.title,c.name,c.dept,c.part,c.sub].join(' ').toLowerCase().includes(q));
-  if(!rows.length) return `<div class="card"><div class="ctitle">${esc(BOARDS.centersLabel||'센터소장 현황')}</div>`+
-    `<div class="empty">조건에 맞는 센터소장이 없습니다</div></div>`;
-
-  // 원본 표 순서를 그대로 둡니다. 구분·소속이 바뀌는 지점에만 머리줄을 넣습니다.
-  let lastPart=null, lastSub=null, body='';
-  rows.forEach(c=>{
-    const sub=c.sub||'';
-    if(c.part!==lastPart || sub!==lastSub){
-      const label=c.part+(sub?` · ${sub}`:'');
-      body+=`<tr><td colspan="3" style="background:var(--surface2);font-size:11px;font-weight:700;`+
-            `letter-spacing:.04em;color:var(--text2);padding:7px 14px">${esc(label)}</td></tr>`;
-      lastPart=c.part; lastSub=sub;
-    }
-    body+=`<tr><td style="word-break:keep-all">${esc(c.title)}`+
-      (c.check?` <span title="${esc(c.check)}" style="color:var(--accent);cursor:help">⚠</span>`:'')+`</td>`+
-      `<td style="font-weight:600;white-space:nowrap">${esc(c.name)}</td>`+
-      `<td style="color:var(--text3);word-break:keep-all">${esc(c.dept)}</td></tr>`;
-  });
-
-  return `<div class="card"><div class="ctitle">${esc(BOARDS.centersLabel||'센터소장 현황')}</div>`+
-    `<div class="csub">${rows.length}명${q?` · "${esc(q)}" 검색`:''} · 같은 사람이 여러 센터를 맡기도 합니다</div>`+
-    `<div style="overflow-x:auto;margin-top:14px"><table class="fixed" style="min-width:560px">`+
-    `<colgroup><col style="width:min(420px,46%)"><col style="width:92px"><col style="width:min(220px,26%)"><col></colgroup>`+
-    `<thead><tr><th>직책명</th><th>성명</th><th>소속</th></tr></thead><tbody>${body}</tbody></table></div></div>`;
 }
 
 /* ── ⑦ 참조 자료 ── */
