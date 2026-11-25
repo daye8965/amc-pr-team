@@ -583,7 +583,10 @@ async function fetchAds(pw){
   mergeAds();
 }
 async function tryUnlock(){
-  const el=document.getElementById('lock-pw'), msg=document.getElementById('lock-msg');
+  // 두 탭에 비번 칸이 동시에 있을 수 있어, 지금 보고 있는 섹션 안에서만 찾습니다.
+  // getElementById 로 찾으면 문서에서 먼저 나오는 쪽(광고·협찬)을 집어 빈 값을 읽습니다.
+  const sec=document.querySelector('.sec.active');
+  const el=sec.querySelector('#lock-pw'), msg=sec.querySelector('#lock-msg');
   const pw=(el.value||'').trim();
   if(!pw){ msg.textContent='비밀번호를 넣어주세요.'; return; }
   msg.textContent='확인 중…';
@@ -619,11 +622,13 @@ function unlockSection(id){
 }
 function lockBox(sec,name){
   if(sec.querySelector('.lockbox')) return;
+  document.querySelectorAll('.lockbox').forEach(b=>b.remove());   // 비번 칸은 한 번에 하나만
   const d=document.createElement('div');
   d.className='card lockbox';
   d.innerHTML=
     `<div class="ctitle">${esc(name)}</div>`+
-    `<div class="csub">유닛 내부용이라 비밀번호를 넣어야 보입니다</div>`+
+    `<div style="margin:6px 0 2px;font-size:13px;font-weight:600;color:var(--accent)">`+
+      `유닛 내부용입니다. 비밀번호를 입력해 주세요</div>`+
     `<div style="display:flex;gap:8px;margin-top:14px">`+
       `<input type="password" id="lock-pw" placeholder="비밀번호" style="flex:1" `+
       `onkeydown="if(event.key==='Enter')tryUnlock()">`+
