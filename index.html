@@ -1401,6 +1401,60 @@ function refSorted(id,rows){
   });
 }
 
+/* ── 참조 리스트에 줄 더하기 ──
+   비번이 맞으면 Apps Script 가 시트 맨 아래에 한 줄 붙입니다. 열은 이름으로 찾아 넣습니다.
+   날짜 수정과 같은 쓰기 비번(EDIT_PW)을 씁니다. 공개 페이지라 비번은 보내기만 하고 서버가 봅니다. */
+let refAddOpen=null;
+function toggleRefAdd(id){ refAddOpen = refAddOpen===id ? null : id; drawRefTable(id); }
+function refAddForm(id,t){
+  return `<div class="card" style="margin:16px 0 0;background:var(--surface2)">`+
+    `<div class="csub" style="margin-bottom:12px">시트 「${esc(TABS.find(x=>x.id===id).sheet)}」 맨 아래에 한 줄 더합니다. 빈 칸은 비워둬도 됩니다.</div>`+
+    `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px">`+
+    t.columns.map((c,i)=>
+      `<label style="display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--text3)">`+
+      `${esc(c.replace(/\n/g,' '))}`+
+      `<input type="text" data-col="${esc(c)}" class="refadd-f" style="font-size:12px">`+
+      `</label>`).join('')+
+    `</div>`+
+    `<div style="display:flex;gap:8px;align-items:center;margin-top:14px;flex-wrap:wrap">`+
+      `<input type="password" id="refadd-pw" placeholder="수정 비밀번호" style="min-width:180px" `+
+      `onkeydown="if(event.key==='Enter')saveRefRow('${id}')">`+
+      `<button class="fbtn active" id="refadd-save" onclick="saveRefRow('${id}')">시트에 추가</button>`+
+      `<span id="refadd-msg" style="font-size:12px;color:var(--accent)"></span>`+
+    `</div></div>`;
+}
+async function saveRefRow(id){
+  const sheet=TABS.find(x=>x.id===id).sheet;
+  const vals={};
+  let any=false;
+  document.querySelectorAll('.refadd-f').forEach(el=>{
+    const v=(el.value||'').trim();
+    if(v){ vals[el.dataset.col]=v; any=true; }
+  });
+  const msg=document.getElementById('refadd-msg');
+  if(!any){ msg.textContent='넣을 내용을 적어주세요.'; return; }
+  const pwEl=document.getElementById('refadd-pw');
+  const pw=(pwEl.value||'').trim() || sessionStorage.getItem('prPw') || '';
+  if(!pw){ msg.textContent='비밀번호를 넣어주세요.'; pwEl.focus(); return; }
+  const btn=document.getElementById('refadd-save');
+  btn.disabled=true; msg.textContent='저장 중…';
+  try{
+    const res=await fetch(FEED_URL,{method:'POST',redirect:'follow',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({action:'addRef',pw:pw,sheet:sheet,values:vals})});
+    const j=await res.json();
+    if(!j.ok) throw new Error(j.error||'저장하지 못했습니다');
+    sessionStorage.setItem('prPw',pw);
+    refAddOpen=null;
+    await refetchFeed();
+  }catch(e){
+    const t=String(e.message||e);
+    if(t.indexOf('비밀번호')>=0) sessionStorage.removeItem('prPw');
+    msg.textContent=t;
+    btn.disabled=false;
+  }
+}
+
 /** 시트에서 'V' 한 글자로 표시한 해당 여부는 눈에 잘 안 띕니다. 초록 동그라미로 바꿉니다. */
 function refCell(v){
   const t=String(v||'').trim();
@@ -1450,7 +1504,9 @@ function drawRefTable(id){
         `<div><div class="ctitle">${esc(tab.name)}</div>`+
         `<div class="csub" style="margin-bottom:0">시트 「${esc(tab.sheet)}」 · ${rows.length}행${q?` · "${esc(q)}" 검색`:''}</div></div>`+
         `<input type="search" id="${id}-q" value="${esc(q)}" placeholder="표 안에서 검색" style="min-width:210px" oninput="drawRefTable('${id}')">`+
+        `<button class="fbtn" onclick="toggleRefAdd('${id}')">${refAddOpen===id?'닫기':'+ 줄 추가'}</button>`+
       `</div>`+
+      (refAddOpen===id?refAddForm(id,t):'')+
       `<div class="refwrap" style="overflow-x:auto;margin-top:16px"><table class="fixed" style="min-width:760px"><colgroup>${cols}</colgroup>`+
       `<thead><tr>${head}</tr></thead><tbody>`+
       rows.slice(0,500).map(r=>'<tr>'+r.map((v,i)=>

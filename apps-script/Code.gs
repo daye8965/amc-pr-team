@@ -19,7 +19,7 @@
  */
 
 /** 고칠 때마다 올리세요. 대시보드 '전체 현황' 맨 아래에 찍혀서, 재배포가 먹었는지 바로 보입니다. */
-const SCRIPT_VERSION = '2026-11-25a';
+const SCRIPT_VERSION = '2026-11-25b';
 
 const SPREADSHEET_ID = '15mRKud-otGhbvY5efenonaZxjlHGKRMhDU9LmoAA2WA';
 
@@ -300,10 +300,14 @@ function doPost(e) {
       return jsonOut_(out);
     }
 
-    // 날짜 고치기 — 쓰기 비번(EDIT_PW)
+    // 아래는 모두 쓰기 비번(EDIT_PW)
     var pw = props.getProperty('EDIT_PW');
     if (!pw) { out.error = '스크립트에 EDIT_PW 가 없습니다'; return jsonOut_(out); }
     if (String(body.pw || '') !== pw) { out.error = '비밀번호가 다릅니다'; return jsonOut_(out); }
+
+    // 참조 리스트에 한 줄 더하기
+    if (body.action === 'addRef') return jsonOut_(addRefRow_(body));
+
     if (body.action !== 'setDate') { out.error = '허용되지 않은 요청입니다'; return jsonOut_(out); }
 
     var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
@@ -345,6 +349,47 @@ function doPost(e) {
     out.error = String(err);
   }
   return jsonOut_(out);
+}
+
+/**
+ * 참조 리스트 탭 맨 아래에 한 줄 더합니다.
+ * 열은 **이름으로** 찾습니다. 대시보드가 보낸 열 이름이 그 탭에 없으면 그 값은 버립니다.
+ * REF_TABS 에 있는 탭만 허용합니다 — 아무 탭에나 쓰지 못하게.
+ */
+function addRefRow_(body) {
+  var out = {ok: false};
+  var name = String(body.sheet || '');
+  var allowed = REF_TABS.some(function (d) { return d.sheet === name; });
+  if (!allowed) { out.error = '허용되지 않은 탭입니다'; return out; }
+
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = sheetByName_(ss, name);
+  if (!sheet) { out.error = '탭을 찾지 못했습니다'; return out; }
+
+  var def = null;
+  REF_TABS.forEach(function (d) { if (d.sheet === name) def = d; });
+  var values = sheet.getDataRange().getDisplayValues();
+  var headerRows = def.headerRows || [def.headerRow !== undefined ? def.headerRow : findRefHeaderRow_(values)];
+  var header = combineHeader_(values, headerRows);
+  var idx = columnIndex_(header);
+
+  var vals = body.values || {};
+  var row = [];
+  for (var i = 0; i < header.length; i++) row.push('');
+  var filled = 0;
+  Object.keys(vals).forEach(function (k) {
+    var c = idx[norm_(k)];
+    if (c === undefined) return;
+    row[c] = String(vals[k] == null ? '' : vals[k]);
+    if (row[c]) filled++;
+  });
+  if (!filled) { out.error = '넣을 내용이 없습니다'; return out; }
+
+  sheet.appendRow(row);
+  logEdit_(ss, sheet.getLastRow(), name + ' 새 줄', '', row.filter(String).join(' / ').slice(0, 200));
+  out.ok = true;
+  out.row = sheet.getLastRow();
+  return out;
 }
 
 function jsonOut_(obj) {
