@@ -93,7 +93,9 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',-apple-sy
 .cal .dc.hol{background:#fdf6f3}
 .cal .dc.hol .dn{color:#b0503c}
 .cal .hol-name{font-size:10px;color:#b0503c;margin:-2px 0 4px}
-.cal .ev{display:block;width:100%;text-align:left;font-family:inherit;font-size:11px;line-height:1.35;background:#f4e7e1;color:#7d3f27;border:0;border-radius:4px;padding:3px 5px;margin-bottom:3px;cursor:pointer}
+.cal .ev{display:block;width:100%;text-align:left;font-family:inherit;font-size:11px;line-height:1.35;background:#f4e7e1;color:#7d3f27;border:0;border-radius:4px;padding:3px 5px;margin-bottom:3px;cursor:pointer;text-decoration:none}
+.cal .dnbtn{border:0;background:none;padding:0;font:inherit;font-size:11px;cursor:pointer}
+.cal .dnbtn:hover{color:var(--accent);text-decoration:underline}
 .cal .ev:hover{background:#ecd8cf}
 .am-open{background:var(--surface2)}
 .am-detail>td{background:var(--surface2);padding:0 10px 14px}
@@ -283,7 +285,7 @@ footer{text-align:center;padding:1.5rem;font-size:11px;color:var(--text3);border
   <div class="card" style="margin-bottom:1.5rem">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
       <div><div class="ctitle" id="pr-cal-title">-</div>
-        <div class="csub" style="margin-bottom:0">제목을 누르면 아래 목록이 그 날짜로 좁혀집니다</div></div>
+        <div class="csub" style="margin-bottom:0">제목을 누르면 뉴스룸 기사가 새 창으로 열립니다 · 날짜 숫자를 누르면 아래 목록이 그 날로 좁혀집니다</div></div>
       <div class="frow" id="pr-months"></div>
     </div>
     <div id="pr-cal" style="margin-top:14px"></div>
@@ -1126,11 +1128,18 @@ function drawPressCal(yr){
     const list=byDay[d]||[];
     const hol=holidayOn(prYear,prMonth,d);
     const cls='dc'+(((first+d-1)%7===0)?' sun':'')+(hol?' hol':'')+((prDay===d)?' sel':'');
-    html+=`<div class="${cls}"><div class="dn">${d}</div>`+
+    html+=`<div class="${cls}">`+
+      (list.length
+        ? `<button class="dn dnbtn" title="${d}일 배포만 보기" onclick="setPrDay(${d})">${d}</button>`
+        : `<div class="dn">${d}</div>`)+
       (hol?`<div class="hol-name">${esc(hol)}</div>`:'')+
+      // 뉴스룸 글이 있으면 눌렀을 때 바로 그 기사로 갑니다. 없는 건만 아래 목록을 그 날짜로 좁힙니다.
       list.map(r=>{const nr=newsroomFor(r);
-        return `<button class="ev" title="${esc(nr?'뉴스룸: '+nr.title:r.title)}" onclick="setPrDay(${d})">`+
-               `${esc(r.title)}${nr?' <span style="opacity:.6">🔗</span>':''}</button>`;}).join('')+
+        return nr
+          ? `<a class="ev" href="${esc(nr.url)}" target="_blank" rel="noopener" title="뉴스룸: ${esc(nr.title)}">`+
+            `${esc(r.title)} <span style="opacity:.6">🔗</span></a>`
+          : `<button class="ev" title="${esc(r.title)} — 뉴스룸 글을 못 찾아 아래 목록만 좁힙니다" onclick="setPrDay(${d})">`+
+            `${esc(r.title)}</button>`;}).join('')+
       '</div>';
   }
   const tail=(7-((first+last)%7))%7;
