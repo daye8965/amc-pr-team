@@ -39,6 +39,11 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',-apple-sy
 .sheetbtn{display:flex;align-items:center;justify-content:center;gap:6px;padding:10px;margin-bottom:10px;background:#5f6b55;border:1px solid #6e7b62;border-radius:8px;color:#fff;font-size:12.5px;font-weight:600;text-decoration:none;transition:all .15s}
 .sheetbtn:hover{background:#7c8a6f;border-color:#8c9a7f}
 /* 비번 화면. 잠긴 탭은 자물쇠 카드만 남기고 나머지를 가립니다. */
+/* 끼워 넣은 탭은 화면을 꽉 채웁니다. 발치 문구와 카드 아래 여백을 걷어내고
+   iframe 높이는 JS 가 남는 높이에 맞춥니다(머리글 높이가 탭마다 달라서 CSS 로는 못 맞춥니다). */
+body.embed footer{display:none}
+body.embed .main{padding-bottom:14px}
+body.embed .sec.active .card{margin-bottom:0}
 .sec.locked > *:not(.lockbox){display:none}
 .lockbox{max-width:420px;margin:2.5rem auto}
 .content{flex:1;min-width:0;display:flex;flex-direction:column}
@@ -640,6 +645,7 @@ function show(id){
   document.getElementById('side').classList.remove('open');   // 모바일에서 고르면 닫기
   // 끼워 넣은 탭은 PDF 대신 원본 열기 버튼을 머리글에 둡니다
   document.getElementById('pdf-btn').style.display=tab.embed?'none':'';
+  document.body.classList.toggle('embed',!!tab.embed);
   const ob=document.getElementById('open-btn');
   ob.style.display=tab.embed?'':'none';
   if(tab.embed) ob.href=EMBEDS[id].url;
@@ -662,7 +668,16 @@ function show(id){
   }
   if(LOCKED_TABS.includes(id)) unlockSection(id); else sec.classList.remove('locked');
   if(!drawn[id]){ tab.draw(); drawn[id]=true; }
+  if(tab.embed) requestAnimationFrame(fitEmbed);
 }
+/** 끼워 넣은 화면을 남는 높이에 딱 맞춥니다. 안 맞추면 아래가 비거나 페이지가 두 번 스크롤됩니다. */
+function fitEmbed(){
+  document.querySelectorAll('.sec.active iframe').forEach(f=>{
+    const top=f.getBoundingClientRect().top;
+    f.style.height=Math.max(420, Math.round(window.innerHeight-top-16))+'px';
+  });
+}
+addEventListener('resize',fitEmbed);
 function currentTab(){ return document.querySelector('.sec.active')?.id.replace('sec-','')||'overview'; }
 function redrawCurrentTab(){ const c=currentTab(); Object.keys(drawn).forEach(k=>delete drawn[k]); show(c); }
 function initDashboard(){ Object.keys(drawn).forEach(k=>delete drawn[k]); adsReady(); show(currentTab()); }
@@ -1271,7 +1286,7 @@ function drawEmbed(id){
   sec.innerHTML=
     `<div class="card" style="padding:0;overflow:hidden">`+
       `<iframe title="${esc(e.title)}" src="${esc(e.url)}" loading="lazy"`+
-      ` style="width:100%;height:calc(100vh - 150px);min-height:620px;border:0;display:block"></iframe>`+
+      ` style="width:100%;height:calc(100vh - 150px);border:0;display:block"></iframe>`+
     `</div>`;
   sec.dataset.ready='1';
 }
