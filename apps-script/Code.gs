@@ -19,7 +19,7 @@
  */
 
 /** 고칠 때마다 올리세요. 대시보드 '전체 현황' 맨 아래에 찍혀서, 재배포가 먹었는지 바로 보입니다. */
-const SCRIPT_VERSION = '2026-11-25b';
+const SCRIPT_VERSION = '2026-11-25c';
 
 const SPREADSHEET_ID = '15mRKud-otGhbvY5efenonaZxjlHGKRMhDU9LmoAA2WA';
 
@@ -156,13 +156,14 @@ function buildFeed_() {
     });
     if (!keep.length) { meta.tabs.push({name: name, kind: 'ref', rows: 0, error: '쓸 열 없음'}); return; }
 
-    const rows = [];
+    const rows = [], rowNums = [];
     for (let i = headerRow + 1; i < values.length; i++) {
       const row = keep.map(function (k) { return String(values[i][k.i] || '').trim(); });
       if (row.every(function (v) { return !v; })) continue;      // 빈 줄
       rows.push(row);
+      rowNums.push(i + 1);                                       // 시트 행 번호(칸을 고칠 때 씁니다)
     }
-    refs[name] = {columns: keep.map(function (k) { return k.name; }), rows: rows};
+    refs[name] = {columns: keep.map(function (k) { return k.name; }), rows: rows, rowNums: rowNums};
     meta.tabs.push({name: name, kind: 'ref', rows: rows.length});
   });
 
@@ -308,6 +309,9 @@ function doPost(e) {
     // 참조 리스트에 한 줄 더하기
     if (body.action === 'addRef') return jsonOut_(addRefRow_(body));
 
+    // 참조 리스트의 칸 하나 고치기(홍보 성향 딱지 등)
+    if (body.action === 'setRefCell') return jsonOut_(setRefCell_(body));
+
     if (body.action !== 'setDate') { out.error = '허용되지 않은 요청입니다'; return jsonOut_(out); }
 
     var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
@@ -389,6 +393,48 @@ function addRefRow_(body) {
   logEdit_(ss, sheet.getLastRow(), name + ' 새 줄', '', row.filter(String).join(' / ').slice(0, 200));
   out.ok = true;
   out.row = sheet.getLastRow();
+  return out;
+}
+
+/**
+ * 참조 리스트의 칸 하나를 고칩니다. 딱지(홍보 성향)처럼 시트에 원래 없던 열도 다룹니다.
+ * 그 열이 없으면 **머리글 줄 맨 오른쪽에 새로 만듭니다.** 시트에서 눈으로 보이고 지울 수도 있습니다.
+ * REF_TABS 에 있는 탭, 그리고 ALLOW_NEW_COLS 에 적힌 열 이름만 허용합니다.
+ */
+const ALLOW_NEW_COLS = ['홍보 성향'];
+
+function setRefCell_(body) {
+  var out = {ok: false};
+  var name = String(body.sheet || ''), col = String(body.column || '');
+  if (!REF_TABS.some(function (d) { return d.sheet === name; })) { out.error = '허용되지 않은 탭입니다'; return out; }
+
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = sheetByName_(ss, name);
+  if (!sheet) { out.error = '탭을 찾지 못했습니다'; return out; }
+
+  var def = null;
+  REF_TABS.forEach(function (d) { if (d.sheet === name) def = d; });
+  var values = sheet.getDataRange().getDisplayValues();
+  var headerRows = def.headerRows || [def.headerRow !== undefined ? def.headerRow : findRefHeaderRow_(values)];
+  var headerRow = headerRows[headerRows.length - 1];
+  var header = combineHeader_(values, headerRows);
+  var idx = columnIndex_(header);
+
+  var c = idx[norm_(col)];
+  if (c === undefined) {
+    if (ALLOW_NEW_COLS.indexOf(col) < 0) { out.error = '없는 열입니다: ' + col; return out; }
+    c = header.length;                                   // 머리글 오른쪽 끝에 새 열
+    sheet.getRange(headerRow + 1, c + 1).setValue(col);
+    out.createdColumn = col;
+  }
+
+  var row = Number(body.row);
+  if (!(row > headerRow + 1 && row <= sheet.getLastRow())) { out.error = '행 번호가 잘못됐습니다'; return out; }
+
+  var before = String((values[row - 1] || [])[c] || '');
+  sheet.getRange(row, c + 1).setValue(String(body.value == null ? '' : body.value));
+  logEdit_(ss, row, name + ' · ' + col, before, String(body.value || ''));
+  out.ok = true;
   return out;
 }
 
