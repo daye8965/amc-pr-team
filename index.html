@@ -38,6 +38,9 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',-apple-sy
 /* 시트로 나가는 유일한 출구라 눈에 띄게 채웁니다. 선택된 메뉴(클레이)와 헷갈리지 않게 세이지 계열로. */
 .sheetbtn{display:flex;align-items:center;justify-content:center;gap:6px;padding:10px;margin-bottom:10px;background:#5f6b55;border:1px solid #6e7b62;border-radius:8px;color:#fff;font-size:12.5px;font-weight:600;text-decoration:none;transition:all .15s}
 .sheetbtn:hover{background:#7c8a6f;border-color:#8c9a7f}
+/* 비번 화면. 잠긴 탭은 자물쇠 카드만 남기고 나머지를 가립니다. */
+.sec.locked > *:not(.lockbox){display:none}
+.lockbox{max-width:420px;margin:2.5rem auto}
 .content{flex:1;min-width:0;display:flex;flex-direction:column}
 .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:1.1rem 2rem;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:5}
 .topbar h2{font-size:1.15rem;font-weight:700;letter-spacing:-.01em}
@@ -550,6 +553,42 @@ const drawn={};
   document.getElementById('nav').innerHTML=html;
 })();
 
+/* ── 광고 탭 비밀번호 ──
+   데이터 자체는 공개 피드에 들어 있습니다. 이 화면은 지나가다 보는 눈을 막는 '커튼'이지
+   진짜 잠금이 아닙니다. 제대로 막으려면 Apps Script 가 광고 행을 doGet 에서 빼고
+   비번 맞는 POST 에만 내주도록 바꿔야 합니다. 비번은 해시만 둡니다(소스에 그대로 적지 않으려고).  */
+const LOCKED_TABS=['ad','admedia'];
+const LOCK_SHA='760403364522055a5aca702da6f81191d8ffb1314012fdef2aba4a382b58bb75';
+function adsUnlocked(){ return sessionStorage.getItem('adUnlock')==='1'; }
+async function sha256(t){
+  const b=await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t));
+  return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('');
+}
+async function tryUnlock(){
+  const el=document.getElementById('lock-pw'), msg=document.getElementById('lock-msg');
+  const ok = await sha256((el.value||'').trim()) === LOCK_SHA;
+  if(!ok){ msg.textContent='비밀번호가 다릅니다.'; el.select(); return; }
+  sessionStorage.setItem('adUnlock','1');
+  LOCKED_TABS.forEach(t=>document.getElementById('sec-'+t).classList.remove('locked'));
+  show(currentTab());
+}
+function lockBox(sec,name){
+  if(sec.querySelector('.lockbox')) return;
+  const d=document.createElement('div');
+  d.className='card lockbox';
+  d.innerHTML=
+    `<div class="ctitle">${esc(name)}</div>`+
+    `<div class="csub">유닛 내부용이라 비밀번호를 넣어야 보입니다</div>`+
+    `<div style="display:flex;gap:8px;margin-top:14px">`+
+      `<input type="password" id="lock-pw" placeholder="비밀번호" style="flex:1" `+
+      `onkeydown="if(event.key==='Enter')tryUnlock()">`+
+      `<button class="fbtn active" onclick="tryUnlock()">열기</button></div>`+
+    `<div id="lock-msg" style="margin-top:10px;font-size:12px;color:var(--accent)"></div>`+
+    `<div style="margin-top:14px;font-size:11px;color:var(--text3);line-height:1.6">`+
+      `탭을 닫으면 다시 물어봅니다. 광고·협찬과 광고 집행 히스토리 두 탭에 같이 걸립니다.</div>`;
+  sec.prepend(d);
+}
+
 function show(id){
   const tab=TABS.find(t=>t.id===id);
   document.querySelectorAll('.sec').forEach(s=>s.classList.remove('active'));
@@ -563,6 +602,14 @@ function show(id){
   const ob=document.getElementById('open-btn');
   ob.style.display=tab.embed?'':'none';
   if(tab.embed) ob.href=EMBEDS[id].url;
+  const sec=document.getElementById('sec-'+id);
+  if(LOCKED_TABS.includes(id) && !adsUnlocked()){
+    sec.classList.add('locked');
+    lockBox(sec, tab.name);
+    setTimeout(()=>{ const el=document.getElementById('lock-pw'); if(el) el.focus(); },0);
+    return;                                   // 잠겨 있으면 그리지 않습니다
+  }
+  sec.classList.remove('locked');
   if(!drawn[id]){ tab.draw(); drawn[id]=true; }
 }
 function currentTab(){ return document.querySelector('.sec.active')?.id.replace('sec-','')||'overview'; }
