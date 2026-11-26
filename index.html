@@ -648,6 +648,42 @@ function lockBox(sec,name){
   sec.prepend(d);
 }
 
+/* ── 커튼 잠금 (언론유닛 전체 실적) ──
+   이 탭은 남의 페이지를 iframe 으로 끼운 것뿐이라 서버에서 가릴 내용이 없습니다. 화면만 덮습니다.
+   주소를 아는 사람은 원본을 그대로 열 수 있습니다. 광고 탭 같은 자물쇠가 아니라 커튼입니다. */
+const CURTAIN_TABS=['unit'];
+const CURTAIN_PW='asanpr';
+function curtainOpen(){ return sessionStorage.getItem('curtainPw')===CURTAIN_PW; }
+function tryCurtain(){
+  const sec=document.querySelector('.sec.active');
+  const el=sec.querySelector('#curtain-pw'), msg=sec.querySelector('#curtain-msg');
+  const pw=(el.value||'').trim();
+  if(!pw){ msg.textContent='비밀번호를 넣어주세요.'; return; }
+  if(pw!==CURTAIN_PW){ msg.textContent='비밀번호가 다릅니다.'; el.select(); return; }
+  sessionStorage.setItem('curtainPw',pw);
+  CURTAIN_TABS.forEach(unlockSection);
+  show(currentTab());
+}
+function curtainBox(sec,name){
+  if(sec.querySelector('.lockbox')) return;
+  document.querySelectorAll('.lockbox').forEach(b=>b.remove());
+  const d=document.createElement('div');
+  d.className='card lockbox';
+  d.innerHTML=
+    `<div class="ctitle">${esc(name)}</div>`+
+    `<div style="margin:6px 0 2px;font-size:13px;font-weight:600;color:var(--accent)">`+
+      `유닛 내부용입니다. 비밀번호를 입력해 주세요</div>`+
+    `<div style="display:flex;gap:8px;margin-top:14px">`+
+      `<input type="password" id="curtain-pw" placeholder="비밀번호" style="flex:1" `+
+      `onkeydown="if(event.key==='Enter')tryCurtain()">`+
+      `<button class="fbtn active" onclick="tryCurtain()">열기</button></div>`+
+    `<div id="curtain-msg" style="margin-top:10px;font-size:12px;color:var(--accent)"></div>`+
+    `<div style="margin-top:14px;font-size:11px;color:var(--text3);line-height:1.6">`+
+      `끼워 넣은 화면만 가립니다. 원본 주소를 아는 사람은 그대로 볼 수 있습니다.<br>`+
+      `탭을 닫으면 다시 물어봅니다.</div>`;
+  sec.prepend(d);
+}
+
 function show(id){
   const tab=TABS.find(t=>t.id===id);
   document.querySelectorAll('.sec').forEach(s=>s.classList.remove('active'));
@@ -659,10 +695,18 @@ function show(id){
   // 끼워 넣은 탭은 PDF 대신 원본 열기 버튼을 머리글에 둡니다
   document.getElementById('pdf-btn').style.display=tab.embed?'none':'';
   document.body.classList.toggle('embed',!!tab.embed);
+  const curtained=CURTAIN_TABS.includes(id) && !curtainOpen();
   const ob=document.getElementById('open-btn');
-  ob.style.display=tab.embed?'':'none';
+  ob.style.display=(tab.embed && !curtained)?'':'none';   // 커튼 뒤에서는 원본 주소도 내보이지 않습니다
   if(tab.embed) ob.href=EMBEDS[id].url;
   const sec=document.getElementById('sec-'+id);
+  if(curtained){
+    sec.classList.add('locked');
+    curtainBox(sec, tab.name);
+    setTimeout(()=>{ const el=sec.querySelector('#curtain-pw'); if(el) el.focus(); },0);
+    return;
+  }
+  if(CURTAIN_TABS.includes(id)) unlockSection(id);
   if(LOCKED_TABS.includes(id) && !adsUnlocked() && sessionStorage.getItem('adPw')){
     // 세션에 비번이 남아 있으면 조용히 다시 받아옵니다. 서버가 피드를 새로 만드느라 몇 초 걸립니다.
     sec.classList.add('locked');
