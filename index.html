@@ -1555,19 +1555,38 @@ function bdRenumber(rows){
   if(bad) rows.forEach((r,i)=>{ r.order=i+1; });
 }
 
+/**
+ * 「주요보직」 처럼 띄어쓰기만 다르게 적으면 노션에서 다른 항목이 되고
+ * 화면에는 머리줄이 둘로 갈라집니다. 아는 이름이면 제대로 된 표기로 맞춰 줍니다.
+ * 아예 새 이름이면 그대로 둡니다 — 새 구분을 못 만들게 막으면 안 되니까요.
+ */
+function bdCanon(v,list){
+  const bare=t=>String(t||'').replace(/[\s·ㆍ]/g,'');
+  const hit=list.find(o=>bare(o)===bare(v));
+  return hit || String(v||'').trim();
+}
+
 function bdHarvest(){
   if(!bdDraft) return;
   document.querySelectorAll('.bd-f').forEach(el=>{
     const r=bdDraft.rows[Number(el.dataset.i)];
-    if(r) r[el.dataset.k]=(el.value||'').trim();
+    if(!r) return;
+    const k=el.dataset.k;
+    let v=(el.value||'').trim();
+    if(k==='part') v=bdCanon(v,BD_PARTS);
+    if(k==='sub')  v=bdCanon(v,BD_SUBS);
+    r[k]=v;
   });
   const a=document.getElementById('bd-asof');
   if(a) bdDraft.asOf=(a.value||'').trim();
 }
 
 function bdEditRow(r,i){
+  const odd=(k,list)=>r[k] && !list.includes(r[k])
+    ? ` title="목록에 없는 ${k==='part'?'구분':'세부'}입니다. 오타가 아닌지 봐주세요" style="width:100%;padding:4px 6px;font-size:12px;border-color:var(--accent)"`
+    : ` style="width:100%;padding:4px 6px;font-size:12px"`;
   const f=(k,extra)=>`<input class="bd-f" data-i="${i}" data-k="${k}" value="${esc(r[k]||'')}" `+
-    `${extra||''} style="width:100%;padding:4px 6px;font-size:12px">`;
+    `${extra||''}`+(k==='part'?odd('part',BD_PARTS):k==='sub'?odd('sub',BD_SUBS):` style="width:100%;padding:4px 6px;font-size:12px"`)+`>`;
   const b=(t,fn,st)=>`<button class="fbtn" onclick="${fn}" style="padding:2px 6px;font-size:11px;${st||''}">${t}</button>`;
   return `<tr${r.id?'':' style="background:#f1f6ef"'}>`+
     `<td>${f('part',`list="bd-parts" onchange="bdRegroup(${i})"`)}</td>`+
