@@ -526,6 +526,7 @@ function applyFeed(feed){
   FEED=feed;
   WORK=feed.work||[];
   AD_ROWS=null;   // 광고 메모 합치기 결과를 다시 계산
+  BOARDS=null;    // 보직자 명단도 피드에서 다시 읽습니다
   PRESS=null;     // 보도자료 추려 둔 것도 다시 계산
   mergeAds();     // 광고 행은 피드에 없으므로 따로 받아 둔 것을 다시 합칩니다
   drawFeedTabs();
@@ -1392,18 +1393,22 @@ function drawEmbed(id){
 
 /* ── 의사 보직자 현황 ── */
 
-/* 시트가 아니라 노션에서 옮겨 온 명단이라 저장소에 파일로 둡니다(data/boards.json).
-   보직은 매년 1월 개편됩니다. 지난 해를 지우지 않고 years 에 한 묶음씩 쌓아 연도 탭으로 봅니다.
-   한 해 묶음은 '주요 보직 → 기획조정실 → 국제사업실 → 진료부문 → 교육부문 → 연구부문' 순서를
-   원본 표 그대로 둡니다. 정렬하지 마세요 — 순서 자체가 조직도입니다. */
+/* 명단은 노션 DB 「보직자 현황」에 있습니다. 피드(FEED.boards)로 받아 그리고,
+   ✎ 수정 으로 고친 내용은 Apps Script 를 거쳐 노션에 그대로 씁니다(비번은 날짜 수정과 같습니다).
+   보직은 매년 1월 개편됩니다. 지난 해를 지우지 않고 연도 탭으로 쌓아 둡니다.
+   한 해 묶음의 줄 차례는 노션 '순서' 칸이 정합니다. 이름순으로 정렬하지 마세요 — 차례 자체가 조직도입니다. */
 const BOARDS_URL='data/boards.json';          // 노션을 못 읽을 때 쓰는 예비본(2025년분)
 const NOTION_BOARDS_URL='https://www.notion.so/424b79b2acdd813f8c1bf5cfb33a53d7';
-const BOARDS_NOTE='명단은 노션 DB 「보직자 현황」에서 바로 읽어옵니다. 고칠 일이 있으면 노션에서 고치세요 — 1분 안에 여기에 반영됩니다.<br>'+
-  '새 해 명단은 지난 해 줄을 모두 고른 뒤 복제하고, 연도와 기준일만 새로 바꾸면 됩니다. 줄 차례는 「순서」 칸이 정합니다.';
+const BOARDS_NOTE='명단은 노션 DB 「보직자 현황」에서 바로 읽어옵니다. ✎ 수정 을 누르면 이 화면에서 고칠 수 있고, 고친 내용은 노션에도 그대로 들어갑니다.<br>'+
+  '새 해 명단은 수정 모드의 「이 명단으로 새 해 만들기」 를 누르면 지난 해 줄을 그대로 복제해 만듭니다.';
+const BD_PARTS=['주요 보직','기획조정실','국제사업실','진료부문','교육부문','연구부문'];
+const BD_SUBS=['어린이병원','심장병원','암병원'];
 let BOARDS=null, bdYear=null;
+let bdEdit=false, bdDraft=null, bdOrig=null;   // 수정 모드에서만 씁니다
 
 async function drawBoards(){
   const sec=document.getElementById('sec-boards');
+  if(bdEdit&&bdDraft){ renderBoardsEdit(); return; }   // 고치는 중이면 건드리지 않습니다
   if(!BOARDS){
     const fb=(FEED&&FEED.boards)||{};
     if((fb.years||[]).length){
@@ -1426,11 +1431,12 @@ async function drawBoards(){
 }
 function bdYears(){ return (BOARDS.years||[]).map(y=>String(y.year)).sort().reverse(); }
 function bdSet(y){ bdYear=y; renderBoards(); }
+function bdOf(y){ return (BOARDS.years||[]).find(x=>String(x.year)===y); }
 function bdStale(){
   // 올해 명단이 아직 없으면 알려줍니다. 1월 안에는 봐줍니다.
   const now=new Date(), cur=String(now.getFullYear());
   if(bdYears().includes(cur) || now.getMonth()<1) return null;
-  return `${cur}년 보직현황이 아직 없습니다. 노션에서 확인해 추가해 주세요.`;
+  return `${cur}년 보직현황이 아직 없습니다. ✎ 수정 → 「이 명단으로 새 해 만들기」 로 만들 수 있습니다.`;
 }
 
 function bdAsOf(Y){
@@ -1440,14 +1446,17 @@ function bdAsOf(Y){
 
 /** 머리글 카드(연도 버튼·검색창)는 여기서 한 번만 그립니다. */
 function renderBoards(){
+  if(bdEdit&&bdDraft) return renderBoardsEdit();
   const years=bdYears();
   if(bdYear===null || !years.includes(bdYear)) bdYear=years[0]||null;
-  const Y=(BOARDS.years||[]).find(y=>String(y.year)===bdYear);
+  const Y=bdOf(bdYear);
   const sec=document.getElementById('sec-boards');
   if(!Y){ sec.innerHTML='<div class="card"><div class="empty">명단이 비어 있습니다</div></div>'; return; }
 
   const q=((document.getElementById('bd-q')||{}).value||'').trim();
   const stale=bdStale();
+  // 예비본(저장소 파일)에는 노션 줄 번호가 없어 고칠 수 없습니다
+  const canEdit=(Y.rows||[]).length>0 && (Y.rows||[]).every(r=>r.id);
 
   sec.innerHTML=
     `<div class="card">`+
@@ -1458,7 +1467,8 @@ function renderBoards(){
           years.map(y=>`<button class="fbtn${y===bdYear?' active':''}" onclick="bdSet('${esc(y)}')">${esc(y)}년</button>`).join('')+
         `</div>`+
         `<input type="search" id="bd-q" value="${esc(q)}" placeholder="이름·보직·소속 검색" style="min-width:200px" oninput="renderBoardsList()">`+
-        `<a class="fbtn" href="${esc(BOARDS.sourceUrl||NOTION_BOARDS_URL)}" target="_blank" rel="noopener" style="text-decoration:none">노션에서 고치기 ↗</a>`+
+        (canEdit?`<button class="fbtn active" onclick="bdEditOn()">✎ 수정</button>`
+                :`<span style="font-size:11px;color:var(--text3)">예비본이라 고칠 수 없습니다</span>`)+
       `</div>`+
       (stale?`<div style="margin-top:14px;padding:10px 12px;border-radius:8px;background:#fdf1ec;color:#8a4b2e;font-size:12px">⚠ ${esc(stale)}</div>`:'')+
       `<div style="margin-top:12px;font-size:11px;color:var(--text3);line-height:1.6">`+
@@ -1477,7 +1487,7 @@ function renderBoards(){
  * 한글 조합이 끊기고 'ㅇㅣㄷㅏ' 처럼 자모가 흩어집니다.
  */
 function renderBoardsList(){
-  const Y=(BOARDS.years||[]).find(y=>String(y.year)===bdYear);
+  const Y=bdOf(bdYear);
   const box=document.getElementById('bd-list');
   if(!Y||!box) return;
 
@@ -1507,6 +1517,209 @@ function renderBoardsList(){
       `<colgroup><col style="width:48%"><col style="width:110px"><col></colgroup>`+   /* min() 은 크롬이 auto 로 읽습니다 */
       `<thead><tr><th>직책명</th><th>성명</th><th>소속</th></tr></thead><tbody>${body}</tbody></table></div></div>`
     : `<div class="card"><div class="empty">조건에 맞는 보직자가 없습니다</div></div>`;
+}
+
+/* ── 보직자 명단 수정 모드 ──
+   고친 줄만 골라 Apps Script 로 보내고, 거기서 노션에 씁니다.
+   입력칸은 한 번만 그립니다. 글자를 칠 때마다 다시 그리면 한글 조합이 끊깁니다.
+   그래서 줄을 더하거나 옮기기 전에 bdHarvest() 로 화면의 값을 먼저 거둬 둡니다. */
+
+function bdMsg(t){ const el=document.getElementById('bd-msg'); if(el) el.textContent=t||''; }
+
+function bdEditOn(){
+  if(!prPw(true)) return;                      // 날짜 수정과 같은 비밀번호
+  const Y=bdOf(bdYear); if(!Y) return;
+  const rows=(Y.rows||[]).map(r=>({
+    id:r.id||null, part:r.part||'', sub:r.sub||'', title:r.title||'',
+    name:r.name||'', dept:r.dept||'', check:r.check||'',
+    order:(typeof r.order==='number'?r.order:null), _asOf:r.asOf||''}));
+  if(!rows.length || rows.some(r=>!r.id)){
+    alert('이 명단은 여기서 고칠 수 없습니다.\n노션에서 읽어온 명단만 고칠 수 있습니다.');
+    return;
+  }
+  bdOrig={};
+  rows.forEach(r=>{ bdOrig[r.id]={part:r.part,sub:r.sub,title:r.title,name:r.name,
+    dept:r.dept,check:r.check,order:r.order,year:Y.year,asOf:r._asOf}; });
+  bdRenumber(rows);
+  bdDraft={year:String(Y.year), asOf:Y.asOf||'', rows:rows, del:[]};
+  bdEdit=true;
+  renderBoardsEdit();
+}
+
+/** 순서가 비었거나 겹치면 1,2,3… 으로 다시 매깁니다. 멀쩡하면 그대로 둡니다. */
+function bdRenumber(rows){
+  const bad=rows.some((r,i)=>typeof r.order!=='number' || (i>0 && r.order<=rows[i-1].order));
+  if(bad) rows.forEach((r,i)=>{ r.order=i+1; });
+}
+
+function bdHarvest(){
+  if(!bdDraft) return;
+  document.querySelectorAll('.bd-f').forEach(el=>{
+    const r=bdDraft.rows[Number(el.dataset.i)];
+    if(r) r[el.dataset.k]=(el.value||'').trim();
+  });
+  const y=document.getElementById('bd-y'), a=document.getElementById('bd-asof');
+  if(y) bdDraft.year=(y.value||'').trim();
+  if(a) bdDraft.asOf=(a.value||'').trim();
+}
+
+function bdEditRow(r,i){
+  const f=(k,extra)=>`<input class="bd-f" data-i="${i}" data-k="${k}" value="${esc(r[k]||'')}" `+
+    `${extra||''} style="width:100%;padding:4px 6px;font-size:12px">`;
+  const b=(t,fn,st)=>`<button class="fbtn" onclick="${fn}" style="padding:2px 6px;font-size:11px;${st||''}">${t}</button>`;
+  return `<tr${r.id?'':' style="background:#f1f6ef"'}>`+
+    `<td>${f('part','list="bd-parts"')}</td>`+
+    `<td>${f('sub','list="bd-subs"')}</td>`+
+    `<td>${f('title')}</td>`+
+    `<td>${f('name')}</td>`+
+    `<td>${f('dept')}</td>`+
+    `<td>${f('check')}</td>`+
+    `<td style="white-space:nowrap">${b('↑',`bdMove(${i},-1)`)} ${b('↓',`bdMove(${i},1)`)} ${b('✕',`bdDel(${i})`,'color:#a4433a')}</td>`+
+  `</tr>`;
+}
+
+function renderBoardsEdit(){
+  const sec=document.getElementById('sec-boards'), d=bdDraft;
+  if(!d) return;
+  const made=d.rows.filter(r=>!r.id).length;
+  sec.innerHTML=
+    `<div class="card">`+
+      `<div style="display:flex;align-items:flex-start;flex-wrap:wrap;gap:16px">`+
+        `<div><div class="ctitle">의사 보직자 현황 · 수정 중</div>`+
+        `<div class="csub" style="margin-bottom:0">${d.rows.length}줄`+
+          (made?` · 새 줄 ${made}개`:'')+(d.del.length?` · 지울 줄 ${d.del.length}개`:'')+`</div></div>`+
+        `<label style="font-size:12px;color:var(--text3)">연도 `+
+          `<input type="number" id="bd-y" value="${esc(d.year)}" style="width:88px;padding:4px 6px"></label>`+
+        `<label style="font-size:12px;color:var(--text3)">기준일 `+
+          `<input type="date" id="bd-asof" value="${esc(d.asOf||'')}" style="width:152px;padding:4px 6px"></label>`+
+        `<button class="fbtn active" id="bd-save" onclick="bdSave()">저장</button>`+
+        `<button class="fbtn" onclick="bdCancel()">취소</button>`+
+      `</div>`+
+      `<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">`+
+        `<button class="fbtn" onclick="bdAddRow()">+ 줄 추가</button>`+
+        `<button class="fbtn" onclick="bdCloneYear()">이 명단으로 새 해 만들기</button>`+
+        `<span id="bd-msg" style="font-size:12px;color:var(--accent)"></span>`+
+      `</div>`+
+      `<div style="margin-top:10px;font-size:11px;color:var(--text3);line-height:1.6">`+
+        `연도·기준일은 이 명단 전체에 함께 적용됩니다. 줄 차례는 ↑ ↓ 로 옮깁니다.<br>`+
+        `저장을 눌러야 노션에 들어갑니다 — 고친 줄만 보내므로 몇 줄이면 금방, 새 해 명단처럼 많으면 조금 걸립니다.</div>`+
+    `</div>`+
+    `<div class="card"><div style="overflow-x:auto">`+
+      `<table class="fixed" style="min-width:1060px">`+
+      `<colgroup><col style="width:118px"><col style="width:100px"><col style="width:24%">`+
+      `<col style="width:92px"><col style="width:148px"><col><col style="width:104px"></colgroup>`+
+      `<thead><tr><th>구분</th><th>세부</th><th>직책명</th><th>성명</th><th>소속</th><th>비고</th><th>줄</th></tr></thead>`+
+      `<tbody>${d.rows.map(bdEditRow).join('')}</tbody></table></div>`+
+      `<datalist id="bd-parts">${BD_PARTS.map(p=>`<option value="${esc(p)}">`).join('')}</datalist>`+
+      `<datalist id="bd-subs">${BD_SUBS.map(p=>`<option value="${esc(p)}">`).join('')}</datalist>`+
+    `</div>`;
+}
+
+function bdMove(i,dir){
+  bdHarvest();
+  const rows=bdDraft.rows, j=i+dir;
+  if(j<0||j>=rows.length) return;
+  bdRenumber(rows);
+  const a=rows[i].order; rows[i].order=rows[j].order; rows[j].order=a;   // 번호끼리 맞바꿉니다
+  const t=rows[i]; rows[i]=rows[j]; rows[j]=t;
+  renderBoardsEdit();
+}
+
+function bdAddRow(){
+  bdHarvest();
+  const rows=bdDraft.rows, last=rows[rows.length-1];
+  rows.push({id:null, part:(last&&last.part)||'', sub:(last&&last.sub)||'', title:'', name:'', dept:'', check:'',
+    order:(last&&typeof last.order==='number'?last.order:rows.length)+1});
+  renderBoardsEdit();
+  const els=document.querySelectorAll('.bd-f[data-k="title"]');
+  if(els.length) els[els.length-1].focus();
+}
+
+function bdDel(i){
+  bdHarvest();
+  const r=bdDraft.rows[i]; if(!r) return;
+  if(r.id && !confirm(`「${r.title||'제목 없는 줄'}」 을(를) 지울까요?\n저장하면 노션에서도 사라집니다.`)) return;
+  if(r.id) bdDraft.del.push(r.id);
+  bdDraft.rows.splice(i,1);
+  renderBoardsEdit();
+}
+
+/** 지난 해 줄을 그대로 베껴 새 해 명단을 만듭니다. 저장하기 전까지는 아무것도 안 바뀝니다. */
+function bdCloneYear(){
+  bdHarvest();
+  const ny=(window.prompt('새로 만들 연도를 적어주세요', String(Number(bdDraft.year)+1))||'').trim();
+  if(!ny) return;
+  if(!/^\d{4}$/.test(ny)){ alert('연도는 네 자리 숫자로 적어주세요.'); return; }
+  if(bdYears().includes(ny)){ alert(ny+'년 명단이 이미 있습니다.\n그 해를 고르고 ✎ 수정 을 누르세요.'); return; }
+  const as=(window.prompt('기준일을 적어주세요 (2026-01-15 처럼)', ny+'-01-01')||'').trim();
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(as)){ alert('기준일은 2026-01-15 처럼 적어주세요.'); return; }
+  bdDraft={year:ny, asOf:as, del:[], rows:bdDraft.rows.map(r=>({
+    id:null, part:r.part, sub:r.sub, title:r.title, name:r.name, dept:r.dept, check:r.check, order:r.order}))};
+  renderBoardsEdit();
+  bdMsg(`${ny}년 명단 ${bdDraft.rows.length}줄을 베껴 왔습니다. 바뀐 보직을 고친 뒤 저장하세요.`);
+}
+
+function bdCancel(){
+  bdHarvest();                                 // 친 글자까지 세어 보고 물어봅니다
+  if(bdOps().length && !confirm('고친 내용을 버리고 나갈까요?')) return;
+  bdEdit=false; bdDraft=null; bdOrig=null;
+  renderBoards();
+}
+
+/** 원래 값과 달라진 것만 추려 냅니다. 안 건드린 줄은 노션에 손대지 않습니다. */
+function bdOps(){
+  const d=bdDraft; if(!d) return [];
+  const ops=[];
+  d.del.forEach(id=>ops.push({op:'delete',id:id}));
+  d.rows.forEach(r=>{
+    const f={part:r.part,sub:r.sub,title:r.title,name:r.name,dept:r.dept,check:r.check,
+             order:r.order, year:Number(d.year), asOf:d.asOf};
+    if(!r.id){ ops.push({op:'create',fields:f}); return; }
+    const o=bdOrig[r.id]||{}, ch={};
+    Object.keys(f).forEach(k=>{
+      if(String(f[k]==null?'':f[k])!==String(o[k]==null?'':o[k])) ch[k]=f[k];
+    });
+    if(Object.keys(ch).length) ops.push({op:'update',id:r.id,fields:ch});
+  });
+  return ops;
+}
+
+async function bdSave(){
+  bdHarvest();
+  const d=bdDraft;
+  if(!/^\d{4}$/.test(String(d.year).trim())){ bdMsg('연도는 네 자리 숫자로 적어주세요.'); return; }
+  if(d.asOf && !/^\d{4}-\d{2}-\d{2}$/.test(d.asOf)){ bdMsg('기준일은 2026-01-15 처럼 적어주세요.'); return; }
+  const blank=d.rows.findIndex(r=>!r.title);
+  if(blank>=0){ bdMsg(`${blank+1}번째 줄에 직책명이 비어 있습니다.`); return; }
+
+  const ops=bdOps();
+  if(!ops.length){ bdEdit=false; bdDraft=null; bdOrig=null; renderBoards(); return; }
+  const pw=prPw(true); if(!pw) return;
+
+  const btn=document.getElementById('bd-save');
+  if(btn) btn.disabled=true;
+  let done=0;
+  try{
+    // 노션이 초당 3건쯤만 받으므로 30건씩 끊어 보냅니다
+    for(let i=0;i<ops.length;i+=30){
+      const part=ops.slice(i,i+30);
+      bdMsg(`저장 중… ${i}/${ops.length}`);
+      const res=await fetch(FEED_URL,{method:'POST',redirect:'follow',
+        headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body:JSON.stringify({action:'saveBoards',pw:pw,ops:part})});
+      const j=await res.json();
+      if(!j.ok) throw new Error(j.error||'저장하지 못했습니다');
+      done+=part.length;
+    }
+    bdMsg('저장했습니다. 다시 읽어오는 중…');
+    bdEdit=false; bdDraft=null; bdOrig=null; BOARDS=null; bdYear=String(Number(d.year));
+    await refetchFeed();
+  }catch(e){
+    const t=String(e.message||e);
+    if(t.indexOf('비밀번호')>=0) sessionStorage.removeItem('prPw');
+    bdMsg(`저장하지 못했습니다. ${t}`+(done?` (앞 ${done}건은 이미 들어갔습니다 — 새로고침해 확인하세요)`:''));
+    if(btn) btn.disabled=false;
+  }
 }
 
 /* ── ⑦ 참조 자료 ── */

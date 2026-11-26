@@ -19,7 +19,7 @@
  */
 
 /** 고칠 때마다 올리세요. 대시보드 '전체 현황' 맨 아래에 찍혀서, 재배포가 먹었는지 바로 보입니다. */
-const SCRIPT_VERSION = '2026-11-26a';
+const SCRIPT_VERSION = '2026-11-26b';
 
 const SPREADSHEET_ID = '15mRKud-otGhbvY5efenonaZxjlHGKRMhDU9LmoAA2WA';
 
@@ -225,7 +225,7 @@ function boards_() {
         return {years: [], error: '노션 응답 ' + res.getResponseCode() + ' — 통합을 DB 에 연결했는지 확인하세요'};
       }
       const j = JSON.parse(res.getContentText());
-      (j.results || []).forEach(function (pg) { rows.push(notionRow_(pg.properties || {})); });
+      (j.results || []).forEach(function (pg) { rows.push(notionRow_(pg)); });
       cursor = j.has_more ? j.next_cursor : null;
     } while (cursor && ++guard < 10);
   } catch (err) {
@@ -252,7 +252,8 @@ function boards_() {
   return out;
 }
 
-function notionRow_(p) {
+function notionRow_(pg) {
+  const p = pg.properties || {};
   function txt(v) {
     const a = (v && (v.title || v.rich_text)) || [];
     return a.map(function (t) { return t.plain_text || ''; }).join('').trim();
@@ -260,6 +261,7 @@ function notionRow_(p) {
   function sel(v) { return (v && v.select && v.select.name) || ''; }
   function num(v) { return (v && typeof v.number === 'number') ? v.number : null; }
   return {
+    id:    pg.id,                                   // 대시보드에서 고칠 때 이 줄을 가리킵니다
     year:  num(p['연도']),
     order: num(p['순서']),
     asOf:  (p['기준일'] && p['기준일'].date && p['기준일'].date.start) || '',
@@ -270,6 +272,94 @@ function notionRow_(p) {
     dept:  txt(p['소속']),
     check: txt(p['비고'])
   };
+}
+
+/* ── 보직자 명단 고치기(대시보드에서) ── */
+
+/**
+ * 대시보드 「의사 보직자 현황」 탭의 수정 모드가 보내는 요청입니다.
+ * 브라우저가 고친 줄만 골라 보내고, 여기서는 받은 대로 노션에 넣습니다.
+ *   ops: [{op:'update', id, fields}, {op:'create', fields}, {op:'delete', id}]
+ * 노션은 초당 3건 남짓만 받으므로 세 개씩 끊어 보내고 사이에 쉽니다.
+ * 한 번에 40건까지만 받습니다 — 새 해 명단 복제처럼 긴 작업은 브라우저가 나눠 보냅니다.
+ */
+function boardSave_(body) {
+  var out = {ok: false, done: 0};
+  var token = PropertiesService.getScriptProperties().getProperty('NOTION_TOKEN');
+  if (!token) { out.error = '스크립트 속성에 NOTION_TOKEN 이 없습니다'; return out; }
+
+  var ops = body.ops || [];
+  if (!ops.length) { out.error = '보낼 내용이 없습니다'; return out; }
+  if (ops.length > 40) { out.error = '한 번에 40건까지만 보낼 수 있습니다'; return out; }
+
+  var reqs = [];
+  for (var i = 0; i < ops.length; i++) {
+    var r = notionReq_(token, ops[i]);
+    if (!r) { out.error = '알 수 없는 작업이 섞여 있습니다'; return out; }
+    reqs.push(r);
+  }
+
+  var fails = [];
+  for (var s = 0; s < reqs.length; s += 3) {
+    var chunk = reqs.slice(s, s + 3);
+    var res = UrlFetchApp.fetchAll(chunk);
+    for (var k = 0; k < res.length; k++) {
+      var code = res[k].getResponseCode();
+      if (code === 429) {                       // 너무 빨리 보냈습니다. 한 번만 쉬었다 다시
+        Utilities.sleep(1500);
+        res[k] = UrlFetchApp.fetch(chunk[k].url, chunk[k]);
+        code = res[k].getResponseCode();
+      }
+      if (code >= 200 && code < 300) out.done++;
+      else fails.push(ops[s + k].op + ' ' + code + ' ' + res[k].getContentText().slice(0, 150));
+    }
+    if (s + 3 < reqs.length) Utilities.sleep(350);
+  }
+
+  CacheService.getScriptCache().remove('boards');   // 고친 게 바로 보이도록
+  if (fails.length) { out.error = fails.join(' / '); return out; }
+  out.ok = true;
+  return out;
+}
+
+function notionReq_(token, o) {
+  var req = {
+    headers: {'Authorization': 'Bearer ' + token, 'Notion-Version': NOTION_VERSION},
+    contentType: 'application/json',
+    muteHttpExceptions: true
+  };
+  if (o.op === 'create') {
+    req.url = 'https://api.notion.com/v1/pages';
+    req.method = 'post';
+    req.payload = JSON.stringify({parent: {database_id: NOTION_DB}, properties: notionProps_(o.fields || {})});
+    return req;
+  }
+  if (!o.id) return null;
+  req.url = 'https://api.notion.com/v1/pages/' + o.id;
+  req.method = 'patch';
+  if (o.op === 'delete') { req.payload = JSON.stringify({archived: true}); return req; }
+  if (o.op === 'update') { req.payload = JSON.stringify({properties: notionProps_(o.fields || {})}); return req; }
+  return null;
+}
+
+/**
+ * 보낸 칸만 노션 속성으로 바꿉니다. 안 보낸 칸은 건드리지 않습니다.
+ * 구분·세부는 select 라 목록에 없는 이름을 넣으면 노션이 알아서 새 항목을 만듭니다.
+ */
+function notionProps_(f) {
+  function rt(v) { var t = String(v == null ? '' : v); return t ? [{type: 'text', text: {content: t.slice(0, 1900)}}] : []; }
+  function nm(v) { return (v === '' || v === null || v === undefined || isNaN(Number(v))) ? null : Number(v); }
+  var p = {};
+  if ('title' in f) p['직책명'] = {title: rt(f.title)};
+  if ('name'  in f) p['성명']   = {rich_text: rt(f.name)};
+  if ('dept'  in f) p['소속']   = {rich_text: rt(f.dept)};
+  if ('check' in f) p['비고']   = {rich_text: rt(f.check)};
+  if ('part'  in f) p['구분']   = {select: f.part ? {name: String(f.part)} : null};
+  if ('sub'   in f) p['세부']   = {select: f.sub  ? {name: String(f.sub)}  : null};
+  if ('year'  in f) p['연도']   = {number: nm(f.year)};
+  if ('order' in f) p['순서']   = {number: nm(f.order)};
+  if ('asOf'  in f) p['기준일'] = {date: f.asOf ? {start: String(f.asOf)} : null};
+  return p;
 }
 
 /* ── 공휴일 ── */
@@ -408,6 +498,9 @@ function doPost(e) {
 
     // 참조 리스트에 한 줄 더하기
     if (body.action === 'addRef') return jsonOut_(addRefRow_(body));
+
+    // 보직자 명단 고치기 — 노션에 바로 씁니다
+    if (body.action === 'saveBoards') return jsonOut_(boardSave_(body));
 
 
     if (body.action !== 'setDate') { out.error = '허용되지 않은 요청입니다'; return jsonOut_(out); }
