@@ -1558,8 +1558,7 @@ function bdHarvest(){
     const r=bdDraft.rows[Number(el.dataset.i)];
     if(r) r[el.dataset.k]=(el.value||'').trim();
   });
-  const y=document.getElementById('bd-y'), a=document.getElementById('bd-asof');
-  if(y) bdDraft.year=(y.value||'').trim();
+  const a=document.getElementById('bd-asof');
   if(a) bdDraft.asOf=(a.value||'').trim();
 }
 
@@ -1568,13 +1567,15 @@ function bdEditRow(r,i){
     `${extra||''} style="width:100%;padding:4px 6px;font-size:12px">`;
   const b=(t,fn,st)=>`<button class="fbtn" onclick="${fn}" style="padding:2px 6px;font-size:11px;${st||''}">${t}</button>`;
   return `<tr${r.id?'':' style="background:#f1f6ef"'}>`+
-    `<td>${f('part','list="bd-parts"')}</td>`+
-    `<td>${f('sub','list="bd-subs"')}</td>`+
+    `<td>${f('part',`list="bd-parts" onchange="bdRegroup(${i})"`)}</td>`+
+    `<td>${f('sub',`list="bd-subs" onchange="bdRegroup(${i})"`)}</td>`+
     `<td>${f('title')}</td>`+
     `<td>${f('name')}</td>`+
     `<td>${f('dept')}</td>`+
     `<td>${f('check')}</td>`+
-    `<td style="white-space:nowrap">${b('↑',`bdMove(${i},-1)`)} ${b('↓',`bdMove(${i},1)`)} ${b('✕',`bdDel(${i})`,'color:#a4433a')}</td>`+
+    `<td style="white-space:nowrap">`+
+      `${b('⤒',`bdTop(${i})`,'')} ${b('↑',`bdMove(${i},-1)`)} ${b('↓',`bdMove(${i},1)`)} `+
+      `${b('⤓',`bdBottom(${i})`,'')} ${b('✕',`bdDel(${i})`,'color:#a4433a')}</td>`+
   `</tr>`;
 }
 
@@ -1585,11 +1586,9 @@ function renderBoardsEdit(){
   sec.innerHTML=
     `<div class="card">`+
       `<div style="display:flex;align-items:flex-start;flex-wrap:wrap;gap:16px">`+
-        `<div><div class="ctitle">의사 보직자 현황 · 수정 중</div>`+
+        `<div><div class="ctitle">${esc(d.year)}년 보직현황 · 수정 중</div>`+
         `<div class="csub" style="margin-bottom:0">${d.rows.length}줄`+
           (made?` · 새 줄 ${made}개`:'')+(d.del.length?` · 지울 줄 ${d.del.length}개`:'')+`</div></div>`+
-        `<label style="font-size:12px;color:var(--text3)">연도 `+
-          `<input type="number" id="bd-y" value="${esc(d.year)}" style="width:88px;padding:4px 6px"></label>`+
         `<label style="font-size:12px;color:var(--text3)">기준일 `+
           `<input type="date" id="bd-asof" value="${esc(d.asOf||'')}" style="width:152px;padding:4px 6px"></label>`+
         `<button class="fbtn active" id="bd-save" onclick="bdSave()">저장</button>`+
@@ -1598,16 +1597,18 @@ function renderBoardsEdit(){
       `<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">`+
         `<button class="fbtn" onclick="bdAddRow()">+ 줄 추가</button>`+
         `<button class="fbtn" onclick="bdCloneYear()">이 명단으로 새 해 만들기</button>`+
+        `<button class="fbtn" onclick="bdChangeYear()">연도 바꾸기</button>`+
         `<span id="bd-msg" style="font-size:12px;color:var(--accent)"></span>`+
       `</div>`+
       `<div style="margin-top:10px;font-size:11px;color:var(--text3);line-height:1.6">`+
-        `연도·기준일은 이 명단 전체에 함께 적용됩니다. 줄 차례는 ↑ ↓ 로 옮깁니다.<br>`+
+        `첫 칸 「구분」 을 바꾸면 그 묶음 끝으로 저절로 옮겨 갑니다 — 주요 보직으로 바꾸면 맨 위로 올라갑니다.<br>`+
+        `⤒ ⤓ 는 맨 위·맨 아래로, ↑ ↓ 는 한 줄씩. 기준일은 이 명단 전체에 함께 적용됩니다.<br>`+
         `저장을 눌러야 노션에 들어갑니다 — 고친 줄만 보내므로 몇 줄이면 금방, 새 해 명단처럼 많으면 조금 걸립니다.</div>`+
     `</div>`+
     `<div class="card"><div style="overflow-x:auto">`+
-      `<table class="fixed" style="min-width:1060px">`+
-      `<colgroup><col style="width:118px"><col style="width:100px"><col style="width:24%">`+
-      `<col style="width:92px"><col style="width:148px"><col><col style="width:104px"></colgroup>`+
+      `<table class="fixed" style="min-width:1140px">`+
+      `<colgroup><col style="width:118px"><col style="width:100px"><col style="width:23%">`+
+      `<col style="width:92px"><col style="width:146px"><col><col style="width:168px"></colgroup>`+
       `<thead><tr><th>구분</th><th>세부</th><th>직책명</th><th>성명</th><th>소속</th><th>비고</th><th>줄</th></tr></thead>`+
       `<tbody>${d.rows.map(bdEditRow).join('')}</tbody></table></div>`+
       `<datalist id="bd-parts">${BD_PARTS.map(p=>`<option value="${esc(p)}">`).join('')}</datalist>`+
@@ -1615,14 +1616,62 @@ function renderBoardsEdit(){
     `</div>`;
 }
 
-function bdMove(i,dir){
-  bdHarvest();
-  const rows=bdDraft.rows, j=i+dir;
-  if(j<0||j>=rows.length) return;
-  bdRenumber(rows);
-  const a=rows[i].order; rows[i].order=rows[j].order; rows[j].order=a;   // 번호끼리 맞바꿉니다
-  const t=rows[i]; rows[i]=rows[j]; rows[j]=t;
+/**
+ * i 번째 줄을 빼서 j 자리에 끼웁니다(j 는 빼고 난 뒤 기준).
+ * 순서 번호는 앞뒤 사이의 중간값을 줍니다 — 그래야 한 줄만 고치면 되고,
+ * 맨 아래 줄을 맨 위로 보낼 때도 나머지 80여 줄을 건드리지 않습니다.
+ */
+function bdPlaceAt(i,j){
+  const rows=bdDraft.rows;
+  const r=rows.splice(i,1)[0];
+  j=Math.max(0,Math.min(rows.length,j));
+  rows.splice(j,0,r);
+  const prev=j>0?rows[j-1].order:null, next=j<rows.length-1?rows[j+1].order:null;
+  r.order = prev===null ? (next===null?1:next-1)
+          : next===null ? prev+1
+          : (prev+next)/2;
+  // 사이가 너무 좁아지면(또는 번호가 망가지면) 그때만 1,2,3… 으로 다시 매깁니다
+  if(!isFinite(r.order) || (prev!==null && next!==null && Math.abs(next-prev)<0.0005))
+    rows.forEach((x,k)=>{ x.order=k+1; });
   renderBoardsEdit();
+}
+function bdMove(i,dir){ bdHarvest(); bdPlaceAt(i, dir<0?i-1:i+1); }
+function bdTop(i){ bdHarvest(); bdPlaceAt(i,0); }
+function bdBottom(i){ bdHarvest(); bdPlaceAt(i, bdDraft.rows.length); }
+
+/**
+ * 첫 칸 「구분」(또는 「세부」)을 바꾸면 그 묶음 끝으로 옮겨 줍니다.
+ * 아래쪽에 새 줄을 더해 두고 구분만 '주요 보직' 으로 바꾸면 한 번에 맨 위로 올라갑니다.
+ */
+function bdRegroup(i){
+  bdHarvest();
+  const rows=bdDraft.rows, r=rows[i];
+  const rest=rows.filter((_,k)=>k!==i);
+  const rank=p=>{ const k=BD_PARTS.indexOf(p); return k<0?BD_PARTS.length:k; };
+  let j=-1;
+  rest.forEach((a,k)=>{ if(a.part===r.part && (a.sub||'')===(r.sub||'')) j=k+1; });   // 같은 묶음 끝
+  if(j<0) rest.forEach((a,k)=>{ if(a.part===r.part) j=k+1; });                        // 같은 구분 끝
+  if(j<0){                                                                            // 그 구분이 처음이면 차례에 맞는 자리
+    j=rest.findIndex(a=>rank(a.part)>rank(r.part));
+    if(j<0) j=rest.length;
+  }
+  bdPlaceAt(i,j);
+}
+
+/** 연도는 입력칸이 아니라 이 버튼으로만 바꿉니다. 그냥 고치면 지난 해 탭이 통째로 사라지기 때문입니다. */
+function bdChangeYear(){
+  bdHarvest();
+  const cur=bdDraft.year, n=bdDraft.rows.length;
+  const ny=(window.prompt(`${cur}년 명단을 몇 년도로 옮길까요?
+(복제가 아니라 이동입니다 — 새 해를 만들려면 「이 명단으로 새 해 만들기」 를 쓰세요)`, cur)||'').trim();
+  if(!ny || ny===cur) return;
+  if(!/^\d{4}$/.test(ny)){ alert('연도는 네 자리 숫자로 적어주세요.'); return; }
+  if(bdYears().includes(ny)){ alert(ny+'년 명단이 이미 있습니다. 두 해가 섞이므로 옮길 수 없습니다.'); return; }
+  if(!confirm(`${cur}년 ${n}줄이 통째로 ${ny}년으로 옮겨집니다.
+저장하면 ${cur}년 탭은 사라집니다. 계속할까요?`)) return;
+  bdDraft.year=ny;
+  renderBoardsEdit();
+  bdMsg(`${ny}년으로 옮길 준비가 됐습니다. 저장을 눌러야 반영됩니다.`);
 }
 
 function bdAddRow(){
