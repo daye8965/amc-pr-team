@@ -24,19 +24,19 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',-apple-sy
 /* ── 레이아웃: 왼쪽 사이드바 + 본문 ── */
 .app{display:flex;min-height:100vh}
 .side{width:224px;flex:0 0 224px;background:#2e2a26;color:#ddd6cc;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto}
-.side-top{padding:1.3rem 1.25rem;border-bottom:1px solid rgba(255,255,255,.08)}
+.side-top{padding:.85rem 1.25rem;border-bottom:1px solid rgba(255,255,255,.08)}
 .side-top h1{font-size:13.5px;font-weight:700;color:#fff;letter-spacing:-.02em;line-height:1.35;white-space:nowrap}
 .side-top .sub{font-size:11px;color:#9a9087;margin-top:5px;line-height:1.5}
-.side-nav{padding:.7rem .75rem;flex:1}
-.sgroup{font-size:10px;font-weight:700;color:#a39c92;letter-spacing:.1em;padding:.7rem .6rem .3rem}
+.side-nav{padding:.4rem .7rem;flex:1}
+.sgroup{font-size:10px;font-weight:700;color:#a39c92;letter-spacing:.1em;padding:.45rem .6rem .18rem}
 .sgroup:first-child{padding-top:.2rem}
-.snav{display:flex;align-items:center;gap:9px;width:100%;padding:6px 10px;margin-bottom:1px;border:none;background:none;color:#ddd6cc;font-family:inherit;font-size:13px;font-weight:500;text-align:left;border-radius:8px;cursor:pointer;transition:all .15s}
+.snav{display:flex;align-items:center;gap:8px;width:100%;padding:4.5px 10px;margin-bottom:1px;border:none;background:none;color:#ddd6cc;font-family:inherit;font-size:13px;font-weight:500;text-align:left;border-radius:8px;cursor:pointer;transition:all .15s}
 .snav:hover{background:rgba(255,255,255,.07);color:#fff}
 .snav.active{background:var(--accent);color:#fff;font-weight:600}
 .snav .ico{font-size:14px;width:18px;text-align:center;flex:0 0 18px}
-.side-foot{padding:1rem 1.25rem;border-top:1px solid rgba(255,255,255,.08);font-size:10px;color:#9a9087;line-height:1.6}
+.side-foot{padding:.8rem 1.1rem;border-top:1px solid rgba(255,255,255,.08);font-size:10px;color:#9a9087;line-height:1.6}
 /* 시트로 나가는 유일한 출구라 눈에 띄게 채웁니다. 선택된 메뉴(클레이)와 헷갈리지 않게 세이지 계열로. */
-.sheetbtn{display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 8px;margin-bottom:8px;background:#5f6b55;border:1px solid #6e7b62;border-radius:8px;color:#fff;font-size:12px;font-weight:600;line-height:1.35;text-align:center;text-decoration:none;transition:all .15s}
+.sheetbtn{display:flex;align-items:center;justify-content:center;gap:6px;padding:8px;margin-bottom:6px;background:#5f6b55;border:1px solid #6e7b62;border-radius:8px;color:#fff;font-size:12px;font-weight:600;line-height:1.35;text-align:center;text-decoration:none;transition:all .15s}
 .sheetbtn:hover{background:#7c8a6f;border-color:#8c9a7f}
 /* 병원보는 다른 시트라 색을 달리 둡니다. 눌렀을 때 어느 시트로 가는지 색으로 먼저 보이게. */
 .sheetbtn.alt{background:#6e5562;border-color:#7d6271;margin-bottom:10px}
