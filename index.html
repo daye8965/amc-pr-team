@@ -322,6 +322,7 @@ footer{text-align:center;padding:1.5rem;font-size:11px;color:var(--text3);border
 <section class="sec" id="sec-hnews"></section>
 <section class="sec" id="sec-radar"></section>
 <section class="sec" id="sec-events"></section>
+<section class="sec" id="sec-paper"></section>
 
 <!-- ⑦ 참조 자료 — 리스트마다 한 탭씩. 속은 JS 가 채웁니다. -->
 <section class="sec" id="sec-boards"></section>
@@ -556,7 +557,8 @@ const TABS=[
   {id:'ref-note', group:'자료',      name:'의료진 특이사항', icon:'📝', crumb:'홍보 관련 참고 메모',       sheet:'의료진 홍보 관련 특이사항', draw:()=>drawRefTable('ref-note')},
   {id:'help',     group:'자료',      name:'도움말자료',  icon:'🗓️', crumb:'연도별 기획 캘린더',           draw:()=>drawHelp()},
   {id:'events',   group:'자료',      name:'원내 행사 모아보기', icon:'📅', crumb:'원내 행사 일정을 모아 봅니다 · 따로 운영되는 페이지', embed:true, draw:()=>drawEmbed('events')},
-  {id:'unit',     group:'현황',      name:'언론유닛 전체 실적', icon:'📊', crumb:'언론유닛 홍보 실적 대시보드 · 따로 운영되는 페이지', embed:true, draw:()=>drawEmbed('unit')}
+  {id:'unit',     group:'현황',      name:'언론유닛 전체 실적', icon:'📊', crumb:'언론유닛 홍보 실적 대시보드 · 따로 운영되는 페이지', embed:true, draw:()=>drawEmbed('unit')},
+  {id:'paper',    group:'현황',      name:'병원보 업무 분석', icon:'🗞️', crumb:'병원보 업무 분석 대시보드 · 따로 운영되는 페이지', embed:true, draw:()=>drawEmbed('paper')}
 ];
 const drawn={};
 
@@ -1376,6 +1378,7 @@ const EMBEDS={
   hnews:{title:'병원 뉴스 수집', url:'https://daye8965.github.io/hospital-news-dashboard/'},
   radar:{title:'연구성과 레이더', url:'https://daye8965.github.io/amc-research-radar/'},
   unit:{title:'언론유닛 전체 실적', url:'https://daye8965.github.io/amc-pr-unit/'},
+  paper:{title:'병원보 업무 분석', url:'https://daye8965.github.io/amc-hospital-paper/'},
   // 행사 모아보기는 다른 계정(kms100493-cloud)에서 운영합니다. 주소가 바뀌면 여기만 고치면 됩니다.
   events:{title:'원내 행사 모아보기', url:'https://kms100493-cloud.github.io/asan-event-tracker/'}
 };
