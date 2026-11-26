@@ -1516,8 +1516,10 @@ function renderBoardsList(){
   });
 
   box.innerHTML = rows.length
-    ? `<div class="card"><div style="overflow-x:auto"><table class="fixed" style="min-width:560px">`+
-      `<colgroup><col style="width:48%"><col style="width:110px"><col></colgroup>`+   /* min() 은 크롬이 auto 로 읽습니다 */
+    ? `<div class="card"><div style="overflow-x:auto"><table class="fixed" style="width:auto;min-width:520px">`+
+      /* 폭을 100% 로 두면 남는 자리가 칸마다 나눠 붙어 성명이 직책명에서 멀찍이 떨어집니다.
+         width:auto 로 두고 칸 너비를 그대로 씁니다. min() 은 크롬이 auto 로 읽으니 쓰지 마세요. */
+      `<colgroup><col style="width:320px"><col style="width:80px"><col style="width:150px"></colgroup>`+
       `<thead><tr><th>직책명</th><th>성명</th><th>소속</th></tr></thead><tbody>${body}</tbody></table></div></div>`
     : `<div class="card"><div class="empty">조건에 맞는 보직자가 없습니다</div></div>`;
 }
