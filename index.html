@@ -1473,7 +1473,8 @@ function renderBoards(){
         (canEdit?`<button class="fbtn active" onclick="bdEditOn()">✎ 수정</button>`
                 :`<span style="font-size:11px;color:var(--text3)">예비본이라 고칠 수 없습니다</span>`)+
       `</div>`+
-      (stale?`<div style="margin-top:14px;padding:10px 12px;border-radius:8px;background:#fdf1ec;color:#8a4b2e;font-size:12px">⚠ ${esc(stale)}</div>`:'')+
+      /* inline-block 이라야 띠가 글자 길이만큼만 그려집니다. 블록이면 카드 끝까지 늘어납니다. */
+      (stale?`<div style="display:inline-block;max-width:100%;margin-top:14px;padding:10px 12px;border-radius:8px;background:#fdf1ec;color:#8a4b2e;font-size:12px">⚠ ${esc(stale)}</div>`:'')+
       `<div style="margin-top:12px;font-size:11px;color:var(--text3);line-height:1.6">`+
         `${BOARDS.note||''}<br>출처: <a href="${esc(BOARDS.sourceUrl||'#')}" target="_blank" rel="noopener" style="color:var(--accent)">${esc(BOARDS.source||'')}</a></div>`+
     `</div>`+
