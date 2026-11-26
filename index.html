@@ -36,8 +36,11 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',-apple-sy
 .snav .ico{font-size:14px;width:18px;text-align:center;flex:0 0 18px}
 .side-foot{padding:1rem 1.25rem;border-top:1px solid rgba(255,255,255,.08);font-size:10px;color:#9a9087;line-height:1.6}
 /* 시트로 나가는 유일한 출구라 눈에 띄게 채웁니다. 선택된 메뉴(클레이)와 헷갈리지 않게 세이지 계열로. */
-.sheetbtn{display:flex;align-items:center;justify-content:center;gap:6px;padding:10px;margin-bottom:10px;background:#5f6b55;border:1px solid #6e7b62;border-radius:8px;color:#fff;font-size:12.5px;font-weight:600;text-decoration:none;transition:all .15s}
+.sheetbtn{display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 8px;margin-bottom:8px;background:#5f6b55;border:1px solid #6e7b62;border-radius:8px;color:#fff;font-size:12px;font-weight:600;line-height:1.35;text-align:center;text-decoration:none;transition:all .15s}
 .sheetbtn:hover{background:#7c8a6f;border-color:#8c9a7f}
+/* 병원보는 다른 시트라 색을 달리 둡니다. 눌렀을 때 어느 시트로 가는지 색으로 먼저 보이게. */
+.sheetbtn.alt{background:#6e5562;border-color:#7d6271;margin-bottom:10px}
+.sheetbtn.alt:hover{background:#8a6a78;border-color:#9a7a88}
 /* 비번 화면. 잠긴 탭은 자물쇠 카드만 남기고 나머지를 가립니다. */
 /* 끼워 넣은 탭은 화면을 꽉 채웁니다. 발치 문구와 카드 아래 여백을 걷어내고
    iframe 높이는 JS 가 남는 높이에 맞춥니다(머리글 높이가 탭마다 달라서 CSS 로는 못 맞춥니다). */
@@ -155,7 +158,9 @@ footer{text-align:center;padding:1.5rem;font-size:11px;color:var(--text3);border
   <nav class="side-nav" id="nav"></nav>
   <div class="side-foot">
     <a class="sheetbtn" href="https://docs.google.com/spreadsheets/d/15mRKud-otGhbvY5efenonaZxjlHGKRMhDU9LmoAA2WA/edit"
-       target="_blank" rel="noopener">구글 시트 열기 ↗</a>
+       target="_blank" rel="noopener">언론홍보 구글 시트 열기 ↗</a>
+    <a class="sheetbtn alt" href="https://docs.google.com/spreadsheets/d/1A_pBtxztIUlwBl2an8-hWiVHE38lt3_0nS8HsKJ2doQ/edit?gid=1131365768#gid=1131365768"
+       target="_blank" rel="noopener">병원보 구글 시트 열기 ↗</a>
     <span style="color:#b0a79c">수치는 여기가 아니라 시트에서 고칩니다<br>고친 뒤 새로고침하면 반영됩니다</span>
     <div id="feed-info" style="margin-top:8px;color:#7e766d">-</div>
   </div>
