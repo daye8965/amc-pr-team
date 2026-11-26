@@ -19,7 +19,7 @@
  */
 
 /** 고칠 때마다 올리세요. 대시보드 '전체 현황' 맨 아래에 찍혀서, 재배포가 먹었는지 바로 보입니다. */
-const SCRIPT_VERSION = '2026-11-25c';
+const SCRIPT_VERSION = '2026-11-26a';
 
 const SPREADSHEET_ID = '15mRKud-otGhbvY5efenonaZxjlHGKRMhDU9LmoAA2WA';
 
@@ -179,7 +179,97 @@ function buildFeed_() {
 
   meta.holidays = holidays_();
   meta.newsroom = newsroom_();
-  return {meta: meta, work: work, refs: refs};
+  return {meta: meta, work: work, refs: refs, boards: boards_()};
+}
+
+/* ── 의사 보직자 현황 (노션) ── */
+
+/**
+ * 명단은 시트가 아니라 노션 DB 「보직자 현황」에 있습니다.
+ * 매년 1월 개편분은 노션에서 지난 해 줄을 복제하고 연도만 바꿔 쌓습니다.
+ *
+ * 쓰기 전에 세 가지를 해 두세요. 하나라도 빠지면 보직자만 비고 나머지 피드는 그대로 나갑니다.
+ *   1. https://www.notion.so/my-integrations 에서 내부 통합(Internal integration)을 만들고 토큰을 복사합니다
+ *   2. 노션 DB 오른쪽 위 ··· → 연결 → 그 통합을 추가합니다 (이걸 빠뜨리면 404 가 옵니다)
+ *   3. Apps Script ⚙ 프로젝트 설정 → 스크립트 속성에 NOTION_TOKEN 으로 붙여넣습니다
+ *
+ * 표의 순서가 곧 조직도라 '순서' 칸으로 줄을 세웁니다. 노션에서 줄을 끌어 옮겨도
+ * 순서 칸을 안 고치면 대시보드 차례는 그대로입니다.
+ */
+const NOTION_DB = '424b79b2-acdd-813f-8c1b-f5cfb33a53d7';
+const NOTION_VERSION = '2022-06-28';
+
+function boards_() {
+  const token = PropertiesService.getScriptProperties().getProperty('NOTION_TOKEN');
+  if (!token) return {years: [], error: '스크립트 속성에 NOTION_TOKEN 이 없습니다'};
+
+  // 노션에서 고친 게 바로 안 보이면 답답하므로 캐시는 1분만 둡니다.
+  const cache = CacheService.getScriptCache();
+  const hit = cache.get('boards');
+  if (hit) { try { return JSON.parse(hit); } catch (e) {} }
+
+  const rows = [];
+  let cursor = null, guard = 0;
+  try {
+    do {
+      const payload = {page_size: 100, sorts: [{property: '순서', direction: 'ascending'}]};
+      if (cursor) payload.start_cursor = cursor;
+      const res = UrlFetchApp.fetch('https://api.notion.com/v1/databases/' + NOTION_DB + '/query', {
+        method: 'post',
+        contentType: 'application/json',
+        headers: {'Authorization': 'Bearer ' + token, 'Notion-Version': NOTION_VERSION},
+        payload: JSON.stringify(payload),
+        muteHttpExceptions: true
+      });
+      if (res.getResponseCode() !== 200) {
+        return {years: [], error: '노션 응답 ' + res.getResponseCode() + ' — 통합을 DB 에 연결했는지 확인하세요'};
+      }
+      const j = JSON.parse(res.getContentText());
+      (j.results || []).forEach(function (pg) { rows.push(notionRow_(pg.properties || {})); });
+      cursor = j.has_more ? j.next_cursor : null;
+    } while (cursor && ++guard < 10);
+  } catch (err) {
+    return {years: [], error: String(err)};
+  }
+
+  const by = {};
+  rows.forEach(function (r) {
+    if (!r.year || !r.title) return;
+    const y = String(r.year);
+    if (!by[y]) by[y] = {year: y, label: y + ' 보직현황', asOf: '', rows: []};
+    if (r.asOf > by[y].asOf) by[y].asOf = r.asOf;      // 한 해 안에서 가장 늦은 기준일
+    by[y].rows.push(r);
+  });
+  const years = Object.keys(by).sort().map(function (y) {
+    by[y].rows.sort(function (a, b) {
+      return (a.order === null ? 9999 : a.order) - (b.order === null ? 9999 : b.order);
+    });
+    return by[y];
+  });
+
+  const out = {years: years, count: rows.length};
+  cache.put('boards', JSON.stringify(out), 60);
+  return out;
+}
+
+function notionRow_(p) {
+  function txt(v) {
+    const a = (v && (v.title || v.rich_text)) || [];
+    return a.map(function (t) { return t.plain_text || ''; }).join('').trim();
+  }
+  function sel(v) { return (v && v.select && v.select.name) || ''; }
+  function num(v) { return (v && typeof v.number === 'number') ? v.number : null; }
+  return {
+    year:  num(p['연도']),
+    order: num(p['순서']),
+    asOf:  (p['기준일'] && p['기준일'].date && p['기준일'].date.start) || '',
+    part:  sel(p['구분']),
+    sub:   sel(p['세부']),
+    title: txt(p['직책명']),
+    name:  txt(p['성명']),
+    dept:  txt(p['소속']),
+    check: txt(p['비고'])
+  };
 }
 
 /* ── 공휴일 ── */
@@ -498,6 +588,8 @@ function testFeed() {
     Logger.log('참조 [%s] 열: %s', k, JSON.stringify(feed.refs[k].columns));
   });
   Logger.log('업무 첫 행: %s', JSON.stringify(feed.work[0]));
+  var bd = feed.boards || {};
+  Logger.log('보직자 %s명 / %s개 연도%s', bd.count || 0, (bd.years || []).length, bd.error ? ' ← ' + bd.error : '');
   Logger.log('공휴일 %s일 (못 받아오면 0)', Object.keys(feed.meta.holidays || {}).length);
   var nr = feed.meta.newsroom || {};
   var nrN = 0; Object.keys(nr).forEach(function (k) { nrN += nr[k].length; });
