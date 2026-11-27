@@ -322,8 +322,9 @@ footer{text-align:center;padding:1.5rem;font-size:11px;color:var(--text3);border
   <div class="card"><div class="ctitle">배포 목록</div><div class="csub" id="pr-list-sub">-</div>
     <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:12px 0 14px">
       <div class="frow" id="pr-scope" style="align-items:center"></div>
-      <input type="search" id="pr-q" placeholder="제목·담당·진료과·의료진 검색" oninput="drawPress()" style="flex:1;min-width:220px">
+      <!-- 고치는 건 날짜 칸이라 버튼도 날짜 칼럼 쪽에 둡니다. 검색창이 늘어나며 오른쪽을 채웁니다. -->
       <button class="fbtn" id="pr-edit-btn" onclick="togglePrEdit()">날짜 수정</button>
+      <input type="search" id="pr-q" placeholder="제목·담당·진료과·의료진 검색" oninput="drawPress()" style="flex:1;min-width:220px">
     </div>
     <div style="overflow-x:auto"><table class="fixed" style="min-width:820px">
       <colgroup><col style="width:150px"><col style="width:min(560px,38%)"><col style="width:92px"><col style="width:116px"><col style="width:120px"><col style="width:130px"><col></colgroup>
