@@ -307,7 +307,7 @@ footer{text-align:center;padding:1.5rem;font-size:11px;color:var(--text3);border
       <div class="csub" id="pr-month-sub">막대를 누르면 그 달 캘린더로 넘어갑니다</div>
       <div class="cwrap" style="height:230px"><canvas id="c-pr-month"></canvas></div></div>
     <div class="card"><div class="ctitle">연도별 배포 건수</div>
-      <div class="csub">최근 5년 비교 · 막대를 누르면 그 해로 바뀝니다</div>
+      <div class="csub">최근 5년 추이 · 점을 누르면 그 해로 바뀝니다</div>
       <div class="cwrap" style="height:230px"><canvas id="c-pr-year"></canvas></div></div>
   </div>
   <div class="card" style="margin-bottom:1.5rem">
@@ -1206,9 +1206,15 @@ function drawPress(){
   if(!cmp.includes(prYear)) cmp=[...new Set(cmp.concat(prYear))].sort();
   const cntY=cmp.map(y=>all.filter(r=>String(r.year)===y).length);
   destroyChart('c-pr-year');
-  new Chart(document.getElementById('c-pr-year'),{type:'bar',
-    data:{labels:cmp,datasets:[{data:cntY,backgroundColor:cmp.map(y=>y===prYear?'#b5603f':'#e2d9cc'),borderRadius:4,borderWidth:0,maxBarThickness:36}]},
+  // 해마다 한 점씩이라 추이가 보이게 꺾은선으로 그립니다. 고른 해만 점을 키워 표시합니다.
+  new Chart(document.getElementById('c-pr-year'),{type:'line',
+    data:{labels:cmp,datasets:[{data:cntY,borderColor:'#b5603f',borderWidth:2,
+      backgroundColor:'rgba(181,96,63,.10)',fill:true,tension:.3,
+      pointBackgroundColor:cmp.map(y=>y===prYear?'#b5603f':'#fff'),
+      pointBorderColor:'#b5603f',pointBorderWidth:2,
+      pointRadius:cmp.map(y=>y===prYear?6:4),pointHoverRadius:7}]},
     options:{responsive:true,maintainAspectRatio:false,animation:false,
+      interaction:{mode:'index',intersect:false},
       onClick:(e,els)=>{ if(els.length) setPrYear(cmp[els[0].index]); },
       plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y+'건'}}},
       scales:{x:{grid:{display:false},ticks:{color:tx}},y:{grid:{color:gr},ticks:{color:tx,precision:0},beginAtZero:true}}}});
